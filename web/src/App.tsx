@@ -16,6 +16,7 @@ const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage').then((module)
 const TasksPage = lazy(() => import('./pages/TasksPage').then((module) => ({ default: module.TasksPage })));
 const UsersPage = lazy(() => import('./pages/UsersPage').then((module) => ({ default: module.UsersPage })));
 const AuditPage = lazy(() => import('./pages/AuditPage').then((module) => ({ default: module.AuditPage })));
+const SecurityPage = lazy(() => import('./pages/RisksPage').then((module) => ({ default: module.RisksPage })));
 
 function ProtectedRoute() {
   const { user, loading } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="tasks" element={<TasksPage />} />
         <Route path="tasks/:id" element={<TaskDetailPage />} />
         <Route path="alerts" element={<AlertsPage />} />
+        <Route path="security" element={<SecurityPage />} />
         <Route path="proxies" element={<ProxiesPage />} />
         <Route element={<RoleRoute roles={['admin', 'auditor']} />}><Route path="audit" element={<AuditPage />} /></Route>
         <Route element={<RoleRoute roles={['admin']} />}><Route path="users" element={<UsersPage />} /></Route>

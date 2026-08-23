@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Avatar, Button, Dropdown, Form, Input, Layout, Menu, Modal, Space, Typography, message } from 'antd';
 import {
   AlertOutlined, AuditOutlined, CloudServerOutlined, DashboardOutlined, DeploymentUnitOutlined,
-  LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, SwapOutlined, TeamOutlined, UserOutlined,
+  LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, SafetyCertificateOutlined, SwapOutlined, TeamOutlined, UserOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../app/AuthContext';
@@ -16,6 +16,7 @@ const menuItems = [
   { key: '/proxies', icon: <DeploymentUnitOutlined />, label: '代理管理' },
   { key: '/tasks', icon: <SwapOutlined />, label: '操作记录' },
   { key: '/alerts', icon: <AlertOutlined />, label: '告警中心' },
+  { key: '/security', icon: <SafetyCertificateOutlined />, label: '安全检查' },
   { key: '/audit', icon: <AuditOutlined />, label: '审计日志', roles: ['admin', 'auditor'] },
   { key: '/users', icon: <TeamOutlined />, label: '系统管理', roles: ['admin'] },
 ];

@@ -119,7 +119,7 @@ export function RisksPage() {
   const actions = selected?.allowed_actions.filter(isRepairAction) ?? [];
 
   return <div className="page-stack">
-    <div className="page-heading"><div><Typography.Title level={3}>风险中心</Typography.Title><Typography.Text type="secondary">节点部署风险扫描与受控修复</Typography.Text></div><Space wrap>
+    <div className="page-heading"><div><Typography.Title level={3}>安全检查</Typography.Title><Typography.Text type="secondary">节点部署风险扫描与受控修复</Typography.Text></div><Space wrap>
       {canOperate(user?.role) && <Button type="primary" icon={<ScanOutlined />} onClick={() => { setScanIntentKey(crypto.randomUUID()); setScanOpen(true); }}>发起扫描</Button>}
       <Button icon={<ReloadOutlined />} loading={risks.isFetching} onClick={() => void risks.refetch()}>刷新</Button>
     </Space></div>
