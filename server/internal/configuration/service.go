@@ -101,6 +101,54 @@ func (s *Service) Create(ctx context.Context, nodeID, actor, strategy string, co
 	}
 	return domain.ConfigRevision{}, store.ErrConflict
 }
+
+// ImportDiscovered persists the configuration currently found on a node.
+// It is allowed in observe mode because discovery is read-only; it never changes
+// desired_revision_id or service state.
+func (s *Service) ImportDiscovered(ctx context.Context, nodeID string, content []byte) (domain.ConfigRevision, error) {
+	if len(content) == 0 || len(content) > MaxRawConfigSize {
+		return domain.ConfigRevision{}, fmt.Errorf("discovered TOML must contain 1-%d bytes", MaxRawConfigSize)
+	}
+	var document map[string]any
+	if err := toml.Unmarshal(content, &document); err != nil {
+		return domain.ConfigRevision{}, fmt.Errorf("invalid discovered TOML: %w", err)
+	}
+	sum := sha256.Sum256(content)
+	sha := hex.EncodeToString(sum[:])
+	page, err := s.List(ctx, nodeID, 200, "")
+	if err != nil {
+		return domain.ConfigRevision{}, err
+	}
+	for _, existing := range page.Items {
+		if strings.EqualFold(existing.SHA256, sha) {
+			return s.Content(ctx, existing.ID)
+		}
+	}
+	fieldsJSON, _ := json.Marshal(sensitivePaths(document, "", nil))
+	for attempt := 0; attempt < 5; attempt++ {
+		version, err := s.store.NextConfigVersion(ctx, nodeID)
+		if err != nil {
+			return domain.ConfigRevision{}, err
+		}
+		encrypted, nonce, sealedSHA, err := s.cipher.Seal(nodeID, version, content)
+		if err != nil {
+			return domain.ConfigRevision{}, err
+		}
+		revision := domain.ConfigRevision{ID: uuid.Must(uuid.NewV7()).String(), NodeID: nodeID, Version: version, EncryptedContent: encrypted, Nonce: nonce, SHA256: sealedSHA, Strategy: "restart", CreatedBy: "agent-discovery:" + nodeID, CreatedAt: s.now().UTC(), Mode: "discovered", SensitiveFields: string(fieldsJSON)}
+		err = s.store.CreateConfigRevision(store.WithMutationAction(ctx, "config_revision.discovered", "config_revision/"+revision.ID), revision)
+		if err == nil {
+			revision.Content = string(content)
+			revision.EncryptedContent, revision.Nonce = nil, nil
+			s.publish(revision.ID, "config-revision.discovered")
+			return revision, nil
+		}
+		if !errors.Is(err, store.ErrConflict) {
+			return domain.ConfigRevision{}, err
+		}
+	}
+	return domain.ConfigRevision{}, store.ErrConflict
+}
+
 func (s *Service) List(ctx context.Context, nodeID string, limit int, cursor string) (domain.Page[domain.ConfigRevision], error) {
 	if limit <= 0 {
 		limit = 50

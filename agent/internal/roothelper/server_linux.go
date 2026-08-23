@@ -130,6 +130,17 @@ func (s Server) Handle(ctx context.Context, request Request) Response {
 	case OperationScan:
 		scan := securitycheck.New(s.Config.Role, s.Config.ConfigPath, s.Config.ServiceName).Collect(ctx)
 		return Response{Findings: scan.Findings, CompletedKinds: scan.CompletedKinds, ScanErrorCode: scan.ErrorCode}
+	case OperationReadConfig:
+		file, _, err := openFixed(s.Config.ConfigPath)
+		if err != nil {
+			return failure(agentv1.ErrorCode_ERROR_CODE_UNSAFE_PATH, "config read failed")
+		}
+		defer file.Close()
+		data, err := io.ReadAll(io.LimitReader(file, 1<<20+1))
+		if err != nil || len(data) == 0 || len(data) > 1<<20 {
+			return failure(agentv1.ErrorCode_ERROR_CODE_PRECONDITION_FAILED, "config read failed")
+		}
+		return Response{ConfigContent: data, ResourceSHA: hash(data)}
 	case OperationInspect:
 		file, _, err := openFixed(s.Config.ConfigPath)
 		if err != nil {

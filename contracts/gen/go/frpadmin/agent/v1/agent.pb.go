@@ -1156,8 +1156,16 @@ type Inventory struct {
 	// Rules whose required inputs were collected successfully. An absent
 	// finding may only advance resolution when its kind appears here.
 	DeploymentRiskCompletedKinds []DeploymentRiskKind `protobuf:"varint,13,rep,packed,name=deployment_risk_completed_kinds,json=deploymentRiskCompletedKinds,proto3,enum=frpadmin.agent.v1.DeploymentRiskKind" json:"deployment_risk_completed_kinds,omitempty"`
-	unknownFields                protoimpl.UnknownFields
-	sizeCache                    protoimpl.SizeCache
+	// The resolved local FRP configuration. It is sent only when available and
+	// is bounded by the Agent implementation; secrets remain encrypted in the
+	// authenticated control-plane channel and are never exposed in UI DTOs.
+	FrpConfigPath           string             `protobuf:"bytes,14,opt,name=frp_config_path,json=frpConfigPath,proto3" json:"frp_config_path,omitempty"`
+	FrpConfigSha256         string             `protobuf:"bytes,15,opt,name=frp_config_sha256,json=frpConfigSha256,proto3" json:"frp_config_sha256,omitempty"`
+	FrpConfigContent        []byte             `protobuf:"bytes,16,opt,name=frp_config_content,json=frpConfigContent,proto3" json:"frp_config_content,omitempty"`
+	FrpConfigDiscoveryState string             `protobuf:"bytes,17,opt,name=frp_config_discovery_state,json=frpConfigDiscoveryState,proto3" json:"frp_config_discovery_state,omitempty"`
+	FrpConfigCandidates     []*ConfigCandidate `protobuf:"bytes,18,rep,name=frp_config_candidates,json=frpConfigCandidates,proto3" json:"frp_config_candidates,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *Inventory) Reset() {
@@ -1281,6 +1289,117 @@ func (x *Inventory) GetDeploymentRiskCompletedKinds() []DeploymentRiskKind {
 	return nil
 }
 
+func (x *Inventory) GetFrpConfigPath() string {
+	if x != nil {
+		return x.FrpConfigPath
+	}
+	return ""
+}
+
+func (x *Inventory) GetFrpConfigSha256() string {
+	if x != nil {
+		return x.FrpConfigSha256
+	}
+	return ""
+}
+
+func (x *Inventory) GetFrpConfigContent() []byte {
+	if x != nil {
+		return x.FrpConfigContent
+	}
+	return nil
+}
+
+func (x *Inventory) GetFrpConfigDiscoveryState() string {
+	if x != nil {
+		return x.FrpConfigDiscoveryState
+	}
+	return ""
+}
+
+func (x *Inventory) GetFrpConfigCandidates() []*ConfigCandidate {
+	if x != nil {
+		return x.FrpConfigCandidates
+	}
+	return nil
+}
+
+type ConfigCandidate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BinaryPath    string                 `protobuf:"bytes,1,opt,name=binary_path,json=binaryPath,proto3" json:"binary_path,omitempty"`
+	ConfigPath    string                 `protobuf:"bytes,2,opt,name=config_path,json=configPath,proto3" json:"config_path,omitempty"`
+	ServiceName   string                 `protobuf:"bytes,3,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
+	Source        string                 `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
+	Error         string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfigCandidate) Reset() {
+	*x = ConfigCandidate{}
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigCandidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigCandidate) ProtoMessage() {}
+
+func (x *ConfigCandidate) ProtoReflect() protoreflect.Message {
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigCandidate.ProtoReflect.Descriptor instead.
+func (*ConfigCandidate) Descriptor() ([]byte, []int) {
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ConfigCandidate) GetBinaryPath() string {
+	if x != nil {
+		return x.BinaryPath
+	}
+	return ""
+}
+
+func (x *ConfigCandidate) GetConfigPath() string {
+	if x != nil {
+		return x.ConfigPath
+	}
+	return ""
+}
+
+func (x *ConfigCandidate) GetServiceName() string {
+	if x != nil {
+		return x.ServiceName
+	}
+	return ""
+}
+
+func (x *ConfigCandidate) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *ConfigCandidate) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 type DeploymentRisk struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Kind  DeploymentRiskKind     `protobuf:"varint,1,opt,name=kind,proto3,enum=frpadmin.agent.v1.DeploymentRiskKind" json:"kind,omitempty"`
@@ -1296,7 +1415,7 @@ type DeploymentRisk struct {
 
 func (x *DeploymentRisk) Reset() {
 	*x = DeploymentRisk{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[8]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1308,7 +1427,7 @@ func (x *DeploymentRisk) String() string {
 func (*DeploymentRisk) ProtoMessage() {}
 
 func (x *DeploymentRisk) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[8]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1321,7 +1440,7 @@ func (x *DeploymentRisk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeploymentRisk.ProtoReflect.Descriptor instead.
 func (*DeploymentRisk) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{8}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeploymentRisk) GetKind() DeploymentRiskKind {
@@ -1371,7 +1490,7 @@ type ServiceStatus struct {
 
 func (x *ServiceStatus) Reset() {
 	*x = ServiceStatus{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[9]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1383,7 +1502,7 @@ func (x *ServiceStatus) String() string {
 func (*ServiceStatus) ProtoMessage() {}
 
 func (x *ServiceStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[9]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1396,7 +1515,7 @@ func (x *ServiceStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceStatus.ProtoReflect.Descriptor instead.
 func (*ServiceStatus) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{9}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ServiceStatus) GetState() ServiceState {
@@ -1449,7 +1568,7 @@ type Command struct {
 
 func (x *Command) Reset() {
 	*x = Command{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[10]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1461,7 +1580,7 @@ func (x *Command) String() string {
 func (*Command) ProtoMessage() {}
 
 func (x *Command) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[10]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1474,7 +1593,7 @@ func (x *Command) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Command.ProtoReflect.Descriptor instead.
 func (*Command) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{10}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Command) GetCommandId() string {
@@ -1629,7 +1748,7 @@ type InspectCommand struct {
 
 func (x *InspectCommand) Reset() {
 	*x = InspectCommand{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[11]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1641,7 +1760,7 @@ func (x *InspectCommand) String() string {
 func (*InspectCommand) ProtoMessage() {}
 
 func (x *InspectCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[11]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1654,7 +1773,7 @@ func (x *InspectCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectCommand.ProtoReflect.Descriptor instead.
 func (*InspectCommand) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{11}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{12}
 }
 
 type ServiceCommand struct {
@@ -1667,7 +1786,7 @@ type ServiceCommand struct {
 
 func (x *ServiceCommand) Reset() {
 	*x = ServiceCommand{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[12]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1679,7 +1798,7 @@ func (x *ServiceCommand) String() string {
 func (*ServiceCommand) ProtoMessage() {}
 
 func (x *ServiceCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[12]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1692,7 +1811,7 @@ func (x *ServiceCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceCommand.ProtoReflect.Descriptor instead.
 func (*ServiceCommand) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{12}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ServiceCommand) GetAction() ServiceAction {
@@ -1721,7 +1840,7 @@ type ApplyConfigCommand struct {
 
 func (x *ApplyConfigCommand) Reset() {
 	*x = ApplyConfigCommand{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[13]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1733,7 +1852,7 @@ func (x *ApplyConfigCommand) String() string {
 func (*ApplyConfigCommand) ProtoMessage() {}
 
 func (x *ApplyConfigCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[13]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1746,7 +1865,7 @@ func (x *ApplyConfigCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyConfigCommand.ProtoReflect.Descriptor instead.
 func (*ApplyConfigCommand) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{13}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ApplyConfigCommand) GetRevision() string {
@@ -1788,7 +1907,7 @@ type UpgradeFrpCommand struct {
 
 func (x *UpgradeFrpCommand) Reset() {
 	*x = UpgradeFrpCommand{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[14]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1800,7 +1919,7 @@ func (x *UpgradeFrpCommand) String() string {
 func (*UpgradeFrpCommand) ProtoMessage() {}
 
 func (x *UpgradeFrpCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[14]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1813,7 +1932,7 @@ func (x *UpgradeFrpCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpgradeFrpCommand.ProtoReflect.Descriptor instead.
 func (*UpgradeFrpCommand) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{14}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpgradeFrpCommand) GetVersion() string {
@@ -1846,7 +1965,7 @@ type RollbackConfigCommand struct {
 
 func (x *RollbackConfigCommand) Reset() {
 	*x = RollbackConfigCommand{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[15]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1858,7 +1977,7 @@ func (x *RollbackConfigCommand) String() string {
 func (*RollbackConfigCommand) ProtoMessage() {}
 
 func (x *RollbackConfigCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[15]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1871,7 +1990,7 @@ func (x *RollbackConfigCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RollbackConfigCommand.ProtoReflect.Descriptor instead.
 func (*RollbackConfigCommand) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{15}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RollbackConfigCommand) GetTargetRevision() string {
@@ -1890,7 +2009,7 @@ type CollectRuntimeCommand struct {
 
 func (x *CollectRuntimeCommand) Reset() {
 	*x = CollectRuntimeCommand{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[16]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1902,7 +2021,7 @@ func (x *CollectRuntimeCommand) String() string {
 func (*CollectRuntimeCommand) ProtoMessage() {}
 
 func (x *CollectRuntimeCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[16]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1915,7 +2034,7 @@ func (x *CollectRuntimeCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectRuntimeCommand.ProtoReflect.Descriptor instead.
 func (*CollectRuntimeCommand) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{16}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CollectRuntimeCommand) GetDetailLevel() string {
@@ -1943,7 +2062,7 @@ type RepairDeploymentRiskCommand struct {
 
 func (x *RepairDeploymentRiskCommand) Reset() {
 	*x = RepairDeploymentRiskCommand{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[17]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1955,7 +2074,7 @@ func (x *RepairDeploymentRiskCommand) String() string {
 func (*RepairDeploymentRiskCommand) ProtoMessage() {}
 
 func (x *RepairDeploymentRiskCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[17]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1968,7 +2087,7 @@ func (x *RepairDeploymentRiskCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RepairDeploymentRiskCommand.ProtoReflect.Descriptor instead.
 func (*RepairDeploymentRiskCommand) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{17}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *RepairDeploymentRiskCommand) GetFindingId() string {
@@ -2044,7 +2163,7 @@ type CancelCommand struct {
 
 func (x *CancelCommand) Reset() {
 	*x = CancelCommand{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[18]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2056,7 +2175,7 @@ func (x *CancelCommand) String() string {
 func (*CancelCommand) ProtoMessage() {}
 
 func (x *CancelCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[18]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2069,7 +2188,7 @@ func (x *CancelCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelCommand.ProtoReflect.Descriptor instead.
 func (*CancelCommand) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{18}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CancelCommand) GetCommandId() string {
@@ -2098,7 +2217,7 @@ type RotateCertificate struct {
 
 func (x *RotateCertificate) Reset() {
 	*x = RotateCertificate{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[19]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2110,7 +2229,7 @@ func (x *RotateCertificate) String() string {
 func (*RotateCertificate) ProtoMessage() {}
 
 func (x *RotateCertificate) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[19]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2123,7 +2242,7 @@ func (x *RotateCertificate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RotateCertificate.ProtoReflect.Descriptor instead.
 func (*RotateCertificate) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{19}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *RotateCertificate) GetCertificatePem() []byte {
@@ -2166,7 +2285,7 @@ type CertificateRotationRequest struct {
 
 func (x *CertificateRotationRequest) Reset() {
 	*x = CertificateRotationRequest{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[20]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2178,7 +2297,7 @@ func (x *CertificateRotationRequest) String() string {
 func (*CertificateRotationRequest) ProtoMessage() {}
 
 func (x *CertificateRotationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[20]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2191,7 +2310,7 @@ func (x *CertificateRotationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateRotationRequest.ProtoReflect.Descriptor instead.
 func (*CertificateRotationRequest) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{20}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CertificateRotationRequest) GetRequestId() string {
@@ -2233,7 +2352,7 @@ type CommandAck struct {
 
 func (x *CommandAck) Reset() {
 	*x = CommandAck{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[21]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2245,7 +2364,7 @@ func (x *CommandAck) String() string {
 func (*CommandAck) ProtoMessage() {}
 
 func (x *CommandAck) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[21]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2258,7 +2377,7 @@ func (x *CommandAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandAck.ProtoReflect.Descriptor instead.
 func (*CommandAck) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{21}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CommandAck) GetCommandId() string {
@@ -2294,7 +2413,7 @@ type CommandProgress struct {
 
 func (x *CommandProgress) Reset() {
 	*x = CommandProgress{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[22]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2306,7 +2425,7 @@ func (x *CommandProgress) String() string {
 func (*CommandProgress) ProtoMessage() {}
 
 func (x *CommandProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[22]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2319,7 +2438,7 @@ func (x *CommandProgress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandProgress.ProtoReflect.Descriptor instead.
 func (*CommandProgress) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{22}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CommandProgress) GetCommandId() string {
@@ -2372,7 +2491,7 @@ type CommandResult struct {
 
 func (x *CommandResult) Reset() {
 	*x = CommandResult{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[23]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2384,7 +2503,7 @@ func (x *CommandResult) String() string {
 func (*CommandResult) ProtoMessage() {}
 
 func (x *CommandResult) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[23]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2397,7 +2516,7 @@ func (x *CommandResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandResult.ProtoReflect.Descriptor instead.
 func (*CommandResult) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{23}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CommandResult) GetCommandId() string {
@@ -2529,7 +2648,7 @@ type InspectResult struct {
 
 func (x *InspectResult) Reset() {
 	*x = InspectResult{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[24]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2541,7 +2660,7 @@ func (x *InspectResult) String() string {
 func (*InspectResult) ProtoMessage() {}
 
 func (x *InspectResult) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[24]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2554,7 +2673,7 @@ func (x *InspectResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectResult.ProtoReflect.Descriptor instead.
 func (*InspectResult) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{24}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *InspectResult) GetInventory() *Inventory {
@@ -2573,7 +2692,7 @@ type ServiceResult struct {
 
 func (x *ServiceResult) Reset() {
 	*x = ServiceResult{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[25]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2585,7 +2704,7 @@ func (x *ServiceResult) String() string {
 func (*ServiceResult) ProtoMessage() {}
 
 func (x *ServiceResult) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[25]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2598,7 +2717,7 @@ func (x *ServiceResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceResult.ProtoReflect.Descriptor instead.
 func (*ServiceResult) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{25}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ServiceResult) GetStatus() *ServiceStatus {
@@ -2617,7 +2736,7 @@ type RuntimeResult struct {
 
 func (x *RuntimeResult) Reset() {
 	*x = RuntimeResult{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[26]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2629,7 +2748,7 @@ func (x *RuntimeResult) String() string {
 func (*RuntimeResult) ProtoMessage() {}
 
 func (x *RuntimeResult) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[26]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2642,7 +2761,7 @@ func (x *RuntimeResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeResult.ProtoReflect.Descriptor instead.
 func (*RuntimeResult) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{26}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *RuntimeResult) GetSnapshot() *RuntimeSnapshot {
@@ -2669,7 +2788,7 @@ type RepairDeploymentRiskResult struct {
 
 func (x *RepairDeploymentRiskResult) Reset() {
 	*x = RepairDeploymentRiskResult{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[27]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2681,7 +2800,7 @@ func (x *RepairDeploymentRiskResult) String() string {
 func (*RepairDeploymentRiskResult) ProtoMessage() {}
 
 func (x *RepairDeploymentRiskResult) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[27]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2694,7 +2813,7 @@ func (x *RepairDeploymentRiskResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RepairDeploymentRiskResult.ProtoReflect.Descriptor instead.
 func (*RepairDeploymentRiskResult) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{27}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RepairDeploymentRiskResult) GetPrecheckPassed() bool {
@@ -2774,7 +2893,7 @@ type RuntimeSnapshot struct {
 
 func (x *RuntimeSnapshot) Reset() {
 	*x = RuntimeSnapshot{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[28]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2786,7 +2905,7 @@ func (x *RuntimeSnapshot) String() string {
 func (*RuntimeSnapshot) ProtoMessage() {}
 
 func (x *RuntimeSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[28]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2799,7 +2918,7 @@ func (x *RuntimeSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeSnapshot.ProtoReflect.Descriptor instead.
 func (*RuntimeSnapshot) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{28}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *RuntimeSnapshot) GetRole() NodeRole {
@@ -2859,7 +2978,7 @@ type RuntimeProxy struct {
 
 func (x *RuntimeProxy) Reset() {
 	*x = RuntimeProxy{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[29]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2871,7 +2990,7 @@ func (x *RuntimeProxy) String() string {
 func (*RuntimeProxy) ProtoMessage() {}
 
 func (x *RuntimeProxy) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[29]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2884,7 +3003,7 @@ func (x *RuntimeProxy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeProxy.ProtoReflect.Descriptor instead.
 func (*RuntimeProxy) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{29}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *RuntimeProxy) GetName() string {
@@ -2947,7 +3066,7 @@ type RuntimeClient struct {
 
 func (x *RuntimeClient) Reset() {
 	*x = RuntimeClient{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[30]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2959,7 +3078,7 @@ func (x *RuntimeClient) String() string {
 func (*RuntimeClient) ProtoMessage() {}
 
 func (x *RuntimeClient) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[30]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2972,7 +3091,7 @@ func (x *RuntimeClient) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeClient.ProtoReflect.Descriptor instead.
 func (*RuntimeClient) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{30}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *RuntimeClient) GetId() string {
@@ -3008,7 +3127,7 @@ type RuntimeServer struct {
 
 func (x *RuntimeServer) Reset() {
 	*x = RuntimeServer{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[31]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3020,7 +3139,7 @@ func (x *RuntimeServer) String() string {
 func (*RuntimeServer) ProtoMessage() {}
 
 func (x *RuntimeServer) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[31]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3033,7 +3152,7 @@ func (x *RuntimeServer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeServer.ProtoReflect.Descriptor instead.
 func (*RuntimeServer) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{31}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *RuntimeServer) GetBindAddress() string {
@@ -3077,7 +3196,7 @@ type RuntimeTraffic struct {
 
 func (x *RuntimeTraffic) Reset() {
 	*x = RuntimeTraffic{}
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[32]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3089,7 +3208,7 @@ func (x *RuntimeTraffic) String() string {
 func (*RuntimeTraffic) ProtoMessage() {}
 
 func (x *RuntimeTraffic) ProtoReflect() protoreflect.Message {
-	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[32]
+	mi := &file_frpadmin_agent_v1_agent_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3102,7 +3221,7 @@ func (x *RuntimeTraffic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeTraffic.ProtoReflect.Descriptor instead.
 func (*RuntimeTraffic) Descriptor() ([]byte, []int) {
-	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{32}
+	return file_frpadmin_agent_v1_agent_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *RuntimeTraffic) GetBytesIn() int64 {
@@ -3191,7 +3310,7 @@ const file_frpadmin_agent_v1_agent_proto_rawDesc = "" +
 	"\x0fsent_at_unix_ms\x18\x01 \x01(\x03R\fsentAtUnixMs\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x1a\n" +
-	"\bsequence\x18\x03 \x01(\x04R\bsequence\"\xbb\x05\n" +
+	"\bsequence\x18\x03 \x01(\x04R\bsequence\"\xd2\a\n" +
 	"\tInventory\x12\x1a\n" +
 	"\bhostname\x18\x01 \x01(\tR\bhostname\x12)\n" +
 	"\x10operating_system\x18\x02 \x01(\tR\x0foperatingSystem\x12\"\n" +
@@ -3207,7 +3326,20 @@ const file_frpadmin_agent_v1_agent_proto_rawDesc = "" +
 	" \x03(\v2!.frpadmin.agent.v1.DeploymentRiskR\x0fdeploymentRisks\x12A\n" +
 	"\x1ddeployment_risk_scan_complete\x18\v \x01(\bR\x1adeploymentRiskScanComplete\x12D\n" +
 	"\x1fdeployment_risk_scan_error_code\x18\f \x01(\tR\x1bdeploymentRiskScanErrorCode\x12l\n" +
-	"\x1fdeployment_risk_completed_kinds\x18\r \x03(\x0e2%.frpadmin.agent.v1.DeploymentRiskKindR\x1cdeploymentRiskCompletedKinds\"\xdd\x01\n" +
+	"\x1fdeployment_risk_completed_kinds\x18\r \x03(\x0e2%.frpadmin.agent.v1.DeploymentRiskKindR\x1cdeploymentRiskCompletedKinds\x12&\n" +
+	"\x0ffrp_config_path\x18\x0e \x01(\tR\rfrpConfigPath\x12*\n" +
+	"\x11frp_config_sha256\x18\x0f \x01(\tR\x0ffrpConfigSha256\x12,\n" +
+	"\x12frp_config_content\x18\x10 \x01(\fR\x10frpConfigContent\x12;\n" +
+	"\x1afrp_config_discovery_state\x18\x11 \x01(\tR\x17frpConfigDiscoveryState\x12V\n" +
+	"\x15frp_config_candidates\x18\x12 \x03(\v2\".frpadmin.agent.v1.ConfigCandidateR\x13frpConfigCandidates\"\xa4\x01\n" +
+	"\x0fConfigCandidate\x12\x1f\n" +
+	"\vbinary_path\x18\x01 \x01(\tR\n" +
+	"binaryPath\x12\x1f\n" +
+	"\vconfig_path\x18\x02 \x01(\tR\n" +
+	"configPath\x12!\n" +
+	"\fservice_name\x18\x03 \x01(\tR\vserviceName\x12\x16\n" +
+	"\x06source\x18\x04 \x01(\tR\x06source\x12\x14\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\"\xdd\x01\n" +
 	"\x0eDeploymentRisk\x129\n" +
 	"\x04kind\x18\x01 \x01(\x0e2%.frpadmin.agent.v1.DeploymentRiskKindR\x04kind\x12\x1a\n" +
 	"\bevidence\x18\x02 \x01(\tR\bevidence\x12\x1e\n" +
@@ -3438,7 +3570,7 @@ func file_frpadmin_agent_v1_agent_proto_rawDescGZIP() []byte {
 }
 
 var file_frpadmin_agent_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
-var file_frpadmin_agent_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_frpadmin_agent_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_frpadmin_agent_v1_agent_proto_goTypes = []any{
 	(NodeRole)(0),                       // 0: frpadmin.agent.v1.NodeRole
 	(ServiceAction)(0),                  // 1: frpadmin.agent.v1.ServiceAction
@@ -3456,87 +3588,89 @@ var file_frpadmin_agent_v1_agent_proto_goTypes = []any{
 	(*Welcome)(nil),                     // 13: frpadmin.agent.v1.Welcome
 	(*Heartbeat)(nil),                   // 14: frpadmin.agent.v1.Heartbeat
 	(*Inventory)(nil),                   // 15: frpadmin.agent.v1.Inventory
-	(*DeploymentRisk)(nil),              // 16: frpadmin.agent.v1.DeploymentRisk
-	(*ServiceStatus)(nil),               // 17: frpadmin.agent.v1.ServiceStatus
-	(*Command)(nil),                     // 18: frpadmin.agent.v1.Command
-	(*InspectCommand)(nil),              // 19: frpadmin.agent.v1.InspectCommand
-	(*ServiceCommand)(nil),              // 20: frpadmin.agent.v1.ServiceCommand
-	(*ApplyConfigCommand)(nil),          // 21: frpadmin.agent.v1.ApplyConfigCommand
-	(*UpgradeFrpCommand)(nil),           // 22: frpadmin.agent.v1.UpgradeFrpCommand
-	(*RollbackConfigCommand)(nil),       // 23: frpadmin.agent.v1.RollbackConfigCommand
-	(*CollectRuntimeCommand)(nil),       // 24: frpadmin.agent.v1.CollectRuntimeCommand
-	(*RepairDeploymentRiskCommand)(nil), // 25: frpadmin.agent.v1.RepairDeploymentRiskCommand
-	(*CancelCommand)(nil),               // 26: frpadmin.agent.v1.CancelCommand
-	(*RotateCertificate)(nil),           // 27: frpadmin.agent.v1.RotateCertificate
-	(*CertificateRotationRequest)(nil),  // 28: frpadmin.agent.v1.CertificateRotationRequest
-	(*CommandAck)(nil),                  // 29: frpadmin.agent.v1.CommandAck
-	(*CommandProgress)(nil),             // 30: frpadmin.agent.v1.CommandProgress
-	(*CommandResult)(nil),               // 31: frpadmin.agent.v1.CommandResult
-	(*InspectResult)(nil),               // 32: frpadmin.agent.v1.InspectResult
-	(*ServiceResult)(nil),               // 33: frpadmin.agent.v1.ServiceResult
-	(*RuntimeResult)(nil),               // 34: frpadmin.agent.v1.RuntimeResult
-	(*RepairDeploymentRiskResult)(nil),  // 35: frpadmin.agent.v1.RepairDeploymentRiskResult
-	(*RuntimeSnapshot)(nil),             // 36: frpadmin.agent.v1.RuntimeSnapshot
-	(*RuntimeProxy)(nil),                // 37: frpadmin.agent.v1.RuntimeProxy
-	(*RuntimeClient)(nil),               // 38: frpadmin.agent.v1.RuntimeClient
-	(*RuntimeServer)(nil),               // 39: frpadmin.agent.v1.RuntimeServer
-	(*RuntimeTraffic)(nil),              // 40: frpadmin.agent.v1.RuntimeTraffic
+	(*ConfigCandidate)(nil),             // 16: frpadmin.agent.v1.ConfigCandidate
+	(*DeploymentRisk)(nil),              // 17: frpadmin.agent.v1.DeploymentRisk
+	(*ServiceStatus)(nil),               // 18: frpadmin.agent.v1.ServiceStatus
+	(*Command)(nil),                     // 19: frpadmin.agent.v1.Command
+	(*InspectCommand)(nil),              // 20: frpadmin.agent.v1.InspectCommand
+	(*ServiceCommand)(nil),              // 21: frpadmin.agent.v1.ServiceCommand
+	(*ApplyConfigCommand)(nil),          // 22: frpadmin.agent.v1.ApplyConfigCommand
+	(*UpgradeFrpCommand)(nil),           // 23: frpadmin.agent.v1.UpgradeFrpCommand
+	(*RollbackConfigCommand)(nil),       // 24: frpadmin.agent.v1.RollbackConfigCommand
+	(*CollectRuntimeCommand)(nil),       // 25: frpadmin.agent.v1.CollectRuntimeCommand
+	(*RepairDeploymentRiskCommand)(nil), // 26: frpadmin.agent.v1.RepairDeploymentRiskCommand
+	(*CancelCommand)(nil),               // 27: frpadmin.agent.v1.CancelCommand
+	(*RotateCertificate)(nil),           // 28: frpadmin.agent.v1.RotateCertificate
+	(*CertificateRotationRequest)(nil),  // 29: frpadmin.agent.v1.CertificateRotationRequest
+	(*CommandAck)(nil),                  // 30: frpadmin.agent.v1.CommandAck
+	(*CommandProgress)(nil),             // 31: frpadmin.agent.v1.CommandProgress
+	(*CommandResult)(nil),               // 32: frpadmin.agent.v1.CommandResult
+	(*InspectResult)(nil),               // 33: frpadmin.agent.v1.InspectResult
+	(*ServiceResult)(nil),               // 34: frpadmin.agent.v1.ServiceResult
+	(*RuntimeResult)(nil),               // 35: frpadmin.agent.v1.RuntimeResult
+	(*RepairDeploymentRiskResult)(nil),  // 36: frpadmin.agent.v1.RepairDeploymentRiskResult
+	(*RuntimeSnapshot)(nil),             // 37: frpadmin.agent.v1.RuntimeSnapshot
+	(*RuntimeProxy)(nil),                // 38: frpadmin.agent.v1.RuntimeProxy
+	(*RuntimeClient)(nil),               // 39: frpadmin.agent.v1.RuntimeClient
+	(*RuntimeServer)(nil),               // 40: frpadmin.agent.v1.RuntimeServer
+	(*RuntimeTraffic)(nil),              // 41: frpadmin.agent.v1.RuntimeTraffic
 }
 var file_frpadmin_agent_v1_agent_proto_depIdxs = []int32{
 	0,  // 0: frpadmin.agent.v1.EnrollRequest.role:type_name -> frpadmin.agent.v1.NodeRole
 	12, // 1: frpadmin.agent.v1.AgentToServer.hello:type_name -> frpadmin.agent.v1.Hello
 	14, // 2: frpadmin.agent.v1.AgentToServer.heartbeat:type_name -> frpadmin.agent.v1.Heartbeat
 	15, // 3: frpadmin.agent.v1.AgentToServer.inventory:type_name -> frpadmin.agent.v1.Inventory
-	29, // 4: frpadmin.agent.v1.AgentToServer.command_ack:type_name -> frpadmin.agent.v1.CommandAck
-	30, // 5: frpadmin.agent.v1.AgentToServer.command_progress:type_name -> frpadmin.agent.v1.CommandProgress
-	31, // 6: frpadmin.agent.v1.AgentToServer.command_result:type_name -> frpadmin.agent.v1.CommandResult
-	28, // 7: frpadmin.agent.v1.AgentToServer.certificate_rotation_request:type_name -> frpadmin.agent.v1.CertificateRotationRequest
+	30, // 4: frpadmin.agent.v1.AgentToServer.command_ack:type_name -> frpadmin.agent.v1.CommandAck
+	31, // 5: frpadmin.agent.v1.AgentToServer.command_progress:type_name -> frpadmin.agent.v1.CommandProgress
+	32, // 6: frpadmin.agent.v1.AgentToServer.command_result:type_name -> frpadmin.agent.v1.CommandResult
+	29, // 7: frpadmin.agent.v1.AgentToServer.certificate_rotation_request:type_name -> frpadmin.agent.v1.CertificateRotationRequest
 	13, // 8: frpadmin.agent.v1.ServerToAgent.welcome:type_name -> frpadmin.agent.v1.Welcome
-	18, // 9: frpadmin.agent.v1.ServerToAgent.command:type_name -> frpadmin.agent.v1.Command
-	26, // 10: frpadmin.agent.v1.ServerToAgent.cancel_command:type_name -> frpadmin.agent.v1.CancelCommand
-	27, // 11: frpadmin.agent.v1.ServerToAgent.rotate_certificate:type_name -> frpadmin.agent.v1.RotateCertificate
+	19, // 9: frpadmin.agent.v1.ServerToAgent.command:type_name -> frpadmin.agent.v1.Command
+	27, // 10: frpadmin.agent.v1.ServerToAgent.cancel_command:type_name -> frpadmin.agent.v1.CancelCommand
+	28, // 11: frpadmin.agent.v1.ServerToAgent.rotate_certificate:type_name -> frpadmin.agent.v1.RotateCertificate
 	0,  // 12: frpadmin.agent.v1.Hello.role:type_name -> frpadmin.agent.v1.NodeRole
-	17, // 13: frpadmin.agent.v1.Inventory.service:type_name -> frpadmin.agent.v1.ServiceStatus
-	16, // 14: frpadmin.agent.v1.Inventory.deployment_risks:type_name -> frpadmin.agent.v1.DeploymentRisk
+	18, // 13: frpadmin.agent.v1.Inventory.service:type_name -> frpadmin.agent.v1.ServiceStatus
+	17, // 14: frpadmin.agent.v1.Inventory.deployment_risks:type_name -> frpadmin.agent.v1.DeploymentRisk
 	6,  // 15: frpadmin.agent.v1.Inventory.deployment_risk_completed_kinds:type_name -> frpadmin.agent.v1.DeploymentRiskKind
-	6,  // 16: frpadmin.agent.v1.DeploymentRisk.kind:type_name -> frpadmin.agent.v1.DeploymentRiskKind
-	2,  // 17: frpadmin.agent.v1.ServiceStatus.state:type_name -> frpadmin.agent.v1.ServiceState
-	19, // 18: frpadmin.agent.v1.Command.inspect:type_name -> frpadmin.agent.v1.InspectCommand
-	20, // 19: frpadmin.agent.v1.Command.service:type_name -> frpadmin.agent.v1.ServiceCommand
-	21, // 20: frpadmin.agent.v1.Command.apply_config:type_name -> frpadmin.agent.v1.ApplyConfigCommand
-	22, // 21: frpadmin.agent.v1.Command.upgrade_frp:type_name -> frpadmin.agent.v1.UpgradeFrpCommand
-	23, // 22: frpadmin.agent.v1.Command.rollback_config:type_name -> frpadmin.agent.v1.RollbackConfigCommand
-	24, // 23: frpadmin.agent.v1.Command.collect_runtime:type_name -> frpadmin.agent.v1.CollectRuntimeCommand
-	25, // 24: frpadmin.agent.v1.Command.repair_deployment_risk:type_name -> frpadmin.agent.v1.RepairDeploymentRiskCommand
-	1,  // 25: frpadmin.agent.v1.ServiceCommand.action:type_name -> frpadmin.agent.v1.ServiceAction
-	2,  // 26: frpadmin.agent.v1.ServiceCommand.expected_state:type_name -> frpadmin.agent.v1.ServiceState
-	6,  // 27: frpadmin.agent.v1.RepairDeploymentRiskCommand.kind:type_name -> frpadmin.agent.v1.DeploymentRiskKind
-	7,  // 28: frpadmin.agent.v1.RepairDeploymentRiskCommand.action:type_name -> frpadmin.agent.v1.DeploymentRiskRepairAction
-	3,  // 29: frpadmin.agent.v1.CommandResult.status:type_name -> frpadmin.agent.v1.CommandStatus
-	4,  // 30: frpadmin.agent.v1.CommandResult.error_code:type_name -> frpadmin.agent.v1.ErrorCode
-	32, // 31: frpadmin.agent.v1.CommandResult.inspect:type_name -> frpadmin.agent.v1.InspectResult
-	33, // 32: frpadmin.agent.v1.CommandResult.service:type_name -> frpadmin.agent.v1.ServiceResult
-	34, // 33: frpadmin.agent.v1.CommandResult.runtime:type_name -> frpadmin.agent.v1.RuntimeResult
-	35, // 34: frpadmin.agent.v1.CommandResult.repair_deployment_risk:type_name -> frpadmin.agent.v1.RepairDeploymentRiskResult
-	15, // 35: frpadmin.agent.v1.InspectResult.inventory:type_name -> frpadmin.agent.v1.Inventory
-	17, // 36: frpadmin.agent.v1.ServiceResult.status:type_name -> frpadmin.agent.v1.ServiceStatus
-	36, // 37: frpadmin.agent.v1.RuntimeResult.snapshot:type_name -> frpadmin.agent.v1.RuntimeSnapshot
-	15, // 38: frpadmin.agent.v1.RepairDeploymentRiskResult.inventory:type_name -> frpadmin.agent.v1.Inventory
-	0,  // 39: frpadmin.agent.v1.RuntimeSnapshot.role:type_name -> frpadmin.agent.v1.NodeRole
-	37, // 40: frpadmin.agent.v1.RuntimeSnapshot.proxies:type_name -> frpadmin.agent.v1.RuntimeProxy
-	38, // 41: frpadmin.agent.v1.RuntimeSnapshot.clients:type_name -> frpadmin.agent.v1.RuntimeClient
-	39, // 42: frpadmin.agent.v1.RuntimeSnapshot.server:type_name -> frpadmin.agent.v1.RuntimeServer
-	5,  // 43: frpadmin.agent.v1.RuntimeProxy.status:type_name -> frpadmin.agent.v1.RuntimeProxyStatus
-	40, // 44: frpadmin.agent.v1.RuntimeProxy.traffic:type_name -> frpadmin.agent.v1.RuntimeTraffic
-	8,  // 45: frpadmin.agent.v1.AgentControlService.Enroll:input_type -> frpadmin.agent.v1.EnrollRequest
-	10, // 46: frpadmin.agent.v1.AgentControlService.Connect:input_type -> frpadmin.agent.v1.AgentToServer
-	9,  // 47: frpadmin.agent.v1.AgentControlService.Enroll:output_type -> frpadmin.agent.v1.EnrollResponse
-	11, // 48: frpadmin.agent.v1.AgentControlService.Connect:output_type -> frpadmin.agent.v1.ServerToAgent
-	47, // [47:49] is the sub-list for method output_type
-	45, // [45:47] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	16, // 16: frpadmin.agent.v1.Inventory.frp_config_candidates:type_name -> frpadmin.agent.v1.ConfigCandidate
+	6,  // 17: frpadmin.agent.v1.DeploymentRisk.kind:type_name -> frpadmin.agent.v1.DeploymentRiskKind
+	2,  // 18: frpadmin.agent.v1.ServiceStatus.state:type_name -> frpadmin.agent.v1.ServiceState
+	20, // 19: frpadmin.agent.v1.Command.inspect:type_name -> frpadmin.agent.v1.InspectCommand
+	21, // 20: frpadmin.agent.v1.Command.service:type_name -> frpadmin.agent.v1.ServiceCommand
+	22, // 21: frpadmin.agent.v1.Command.apply_config:type_name -> frpadmin.agent.v1.ApplyConfigCommand
+	23, // 22: frpadmin.agent.v1.Command.upgrade_frp:type_name -> frpadmin.agent.v1.UpgradeFrpCommand
+	24, // 23: frpadmin.agent.v1.Command.rollback_config:type_name -> frpadmin.agent.v1.RollbackConfigCommand
+	25, // 24: frpadmin.agent.v1.Command.collect_runtime:type_name -> frpadmin.agent.v1.CollectRuntimeCommand
+	26, // 25: frpadmin.agent.v1.Command.repair_deployment_risk:type_name -> frpadmin.agent.v1.RepairDeploymentRiskCommand
+	1,  // 26: frpadmin.agent.v1.ServiceCommand.action:type_name -> frpadmin.agent.v1.ServiceAction
+	2,  // 27: frpadmin.agent.v1.ServiceCommand.expected_state:type_name -> frpadmin.agent.v1.ServiceState
+	6,  // 28: frpadmin.agent.v1.RepairDeploymentRiskCommand.kind:type_name -> frpadmin.agent.v1.DeploymentRiskKind
+	7,  // 29: frpadmin.agent.v1.RepairDeploymentRiskCommand.action:type_name -> frpadmin.agent.v1.DeploymentRiskRepairAction
+	3,  // 30: frpadmin.agent.v1.CommandResult.status:type_name -> frpadmin.agent.v1.CommandStatus
+	4,  // 31: frpadmin.agent.v1.CommandResult.error_code:type_name -> frpadmin.agent.v1.ErrorCode
+	33, // 32: frpadmin.agent.v1.CommandResult.inspect:type_name -> frpadmin.agent.v1.InspectResult
+	34, // 33: frpadmin.agent.v1.CommandResult.service:type_name -> frpadmin.agent.v1.ServiceResult
+	35, // 34: frpadmin.agent.v1.CommandResult.runtime:type_name -> frpadmin.agent.v1.RuntimeResult
+	36, // 35: frpadmin.agent.v1.CommandResult.repair_deployment_risk:type_name -> frpadmin.agent.v1.RepairDeploymentRiskResult
+	15, // 36: frpadmin.agent.v1.InspectResult.inventory:type_name -> frpadmin.agent.v1.Inventory
+	18, // 37: frpadmin.agent.v1.ServiceResult.status:type_name -> frpadmin.agent.v1.ServiceStatus
+	37, // 38: frpadmin.agent.v1.RuntimeResult.snapshot:type_name -> frpadmin.agent.v1.RuntimeSnapshot
+	15, // 39: frpadmin.agent.v1.RepairDeploymentRiskResult.inventory:type_name -> frpadmin.agent.v1.Inventory
+	0,  // 40: frpadmin.agent.v1.RuntimeSnapshot.role:type_name -> frpadmin.agent.v1.NodeRole
+	38, // 41: frpadmin.agent.v1.RuntimeSnapshot.proxies:type_name -> frpadmin.agent.v1.RuntimeProxy
+	39, // 42: frpadmin.agent.v1.RuntimeSnapshot.clients:type_name -> frpadmin.agent.v1.RuntimeClient
+	40, // 43: frpadmin.agent.v1.RuntimeSnapshot.server:type_name -> frpadmin.agent.v1.RuntimeServer
+	5,  // 44: frpadmin.agent.v1.RuntimeProxy.status:type_name -> frpadmin.agent.v1.RuntimeProxyStatus
+	41, // 45: frpadmin.agent.v1.RuntimeProxy.traffic:type_name -> frpadmin.agent.v1.RuntimeTraffic
+	8,  // 46: frpadmin.agent.v1.AgentControlService.Enroll:input_type -> frpadmin.agent.v1.EnrollRequest
+	10, // 47: frpadmin.agent.v1.AgentControlService.Connect:input_type -> frpadmin.agent.v1.AgentToServer
+	9,  // 48: frpadmin.agent.v1.AgentControlService.Enroll:output_type -> frpadmin.agent.v1.EnrollResponse
+	11, // 49: frpadmin.agent.v1.AgentControlService.Connect:output_type -> frpadmin.agent.v1.ServerToAgent
+	48, // [48:50] is the sub-list for method output_type
+	46, // [46:48] is the sub-list for method input_type
+	46, // [46:46] is the sub-list for extension type_name
+	46, // [46:46] is the sub-list for extension extendee
+	0,  // [0:46] is the sub-list for field type_name
 }
 
 func init() { file_frpadmin_agent_v1_agent_proto_init() }
@@ -3559,7 +3693,7 @@ func file_frpadmin_agent_v1_agent_proto_init() {
 		(*ServerToAgent_CancelCommand)(nil),
 		(*ServerToAgent_RotateCertificate)(nil),
 	}
-	file_frpadmin_agent_v1_agent_proto_msgTypes[10].OneofWrappers = []any{
+	file_frpadmin_agent_v1_agent_proto_msgTypes[11].OneofWrappers = []any{
 		(*Command_Inspect)(nil),
 		(*Command_Service)(nil),
 		(*Command_ApplyConfig)(nil),
@@ -3568,7 +3702,7 @@ func file_frpadmin_agent_v1_agent_proto_init() {
 		(*Command_CollectRuntime)(nil),
 		(*Command_RepairDeploymentRisk)(nil),
 	}
-	file_frpadmin_agent_v1_agent_proto_msgTypes[23].OneofWrappers = []any{
+	file_frpadmin_agent_v1_agent_proto_msgTypes[24].OneofWrappers = []any{
 		(*CommandResult_Inspect)(nil),
 		(*CommandResult_Service)(nil),
 		(*CommandResult_Runtime)(nil),
@@ -3580,7 +3714,7 @@ func file_frpadmin_agent_v1_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frpadmin_agent_v1_agent_proto_rawDesc), len(file_frpadmin_agent_v1_agent_proto_rawDesc)),
 			NumEnums:      8,
-			NumMessages:   33,
+			NumMessages:   34,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

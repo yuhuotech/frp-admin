@@ -82,6 +82,9 @@ export interface NodeSummary {
   os?: string;
   arch?: string;
   labels?: Record<string, string>;
+  frp_binary_path?: string;
+  frp_config_path?: string;
+  config_discovery_state?: string;
   created_at?: string;
 }
 
@@ -153,6 +156,9 @@ export interface ProxyTraffic {
   today_bytes_out: number;
   current_connections: number;
 }
+
+export interface FRPReleaseAsset { name: string; url: string; sha256?: string; size: number; os: string; arch: string; }
+export interface FRPRelease { tag_name: string; name: string; published_at: string; html_url: string; assets: FRPReleaseAsset[]; recommended?: FRPReleaseAsset; }
 
 export interface ProxyConfig {
   name: string;

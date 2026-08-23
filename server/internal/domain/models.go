@@ -28,11 +28,12 @@ type Node struct {
 }
 
 type NodeObservation struct {
-	NodeID                                                             string
-	Online                                                             bool
-	AgentVersion, FRPVersion, ServiceState, ObservedHash, Capabilities string
-	ObservedRevisionID                                                 *string
-	LastHeartbeat                                                      time.Time
+	NodeID                                                                                          string
+	Online                                                                                          bool
+	AgentVersion, FRPVersion, ServiceState, ObservedHash, Capabilities                              string
+	OperatingSystem, Architecture, FrpBinaryPath, FrpConfigPath, ConfigDiscoveryState, ConfigSHA256 string
+	ObservedRevisionID                                                                              *string
+	LastHeartbeat                                                                                   time.Time
 }
 
 type Task struct {

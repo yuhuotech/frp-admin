@@ -103,7 +103,19 @@ func main() {
 	if runtime.GOOS == "linux" && cfg.FRP.HelperSocket != "" {
 		securityChecks = securitycheck.NewFailover(&roothelper.Client{SocketPath: cfg.FRP.HelperSocket}, localSecurityChecks)
 	}
-	inv := inventory.New(cfg.FRP.BinaryPath, cfg.FRP.ServiceName, services, securityChecks)
+	inv := inventory.New(cfg.FRP.BinaryPath, cfg.FRP.ConfigPath, cfg.FRP.ServiceName, cfg.FRPDiscoveryState, cfg.FRPDiscoveryCandidates, services, securityChecks)
+	if helper != nil {
+		inv.WithConfigReader(func(ctx context.Context, path string) ([]byte, error) {
+			response, err := helper.Execute(ctx, roothelper.Request{Operation: roothelper.OperationReadConfig})
+			if err != nil || response.ErrorCode != 0 {
+				if err != nil {
+					return nil, err
+				}
+				return nil, fmt.Errorf("privileged config read failed")
+			}
+			return response.ConfigContent, nil
+		})
+	}
 	configs, err := configmgr.New(configmgr.Options{Role: cfg.Role, BinaryPath: cfg.FRP.BinaryPath, ConfigPath: cfg.FRP.ConfigPath,
 		StateDir: cfg.StateDir, Verifier: configmgr.CLIVerifier{}, Lifecycle: configLifecycle})
 	if err != nil {
@@ -175,7 +187,7 @@ func main() {
 }
 
 func baseCapabilities() []string {
-	return []string{"inspect", "runtime.collect", "certificate.rotate", "risk.scan"}
+	return []string{"inspect", "runtime.collect", "certificate.rotate", "risk.scan", "config.discover"}
 }
 
 func fatal(err error) { slog.Error("fatal", "error", err); os.Exit(1) }

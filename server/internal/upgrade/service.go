@@ -29,6 +29,7 @@ type Service struct {
 	now     func() time.Time
 	timeout time.Duration
 	cipher  *configcrypto.Cipher
+	github  *GitHubClient
 }
 
 type Created struct {
@@ -40,7 +41,7 @@ func New(s store.Store, gateway agentgateway.Gateway, tasks *task.Service, bus *
 	if timeout <= 0 {
 		timeout = 30 * time.Minute
 	}
-	v := &Service{store: s, gateway: gateway, tasks: tasks, events: bus, now: time.Now, timeout: timeout}
+	v := &Service{store: s, gateway: gateway, tasks: tasks, events: bus, now: time.Now, timeout: timeout, github: NewGitHubClient()}
 	if len(ciphers) > 0 {
 		v.cipher = ciphers[0]
 	}

@@ -84,6 +84,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	configService.SetTaskTimeout(cfg.Tasks.Timeouts.Config)
 	gateway := agentgateway.NewService(s, pkiManager, bus, logger, configService)
 	gateway.SetAlertSink(alerter)
+	gateway.SetConfigImporter(configService)
 	configService.SetGateway(gateway)
 	taskService := task.New(s, gateway, bus, alerter)
 	taskService.SetTimeouts(cfg.Tasks.Timeouts.Inspect, cfg.Tasks.Timeouts.Service)

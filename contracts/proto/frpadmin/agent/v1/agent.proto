@@ -162,6 +162,22 @@ message Inventory {
   // Rules whose required inputs were collected successfully. An absent
   // finding may only advance resolution when its kind appears here.
   repeated DeploymentRiskKind deployment_risk_completed_kinds = 13;
+  // The resolved local FRP configuration. It is sent only when available and
+  // is bounded by the Agent implementation; secrets remain encrypted in the
+  // authenticated control-plane channel and are never exposed in UI DTOs.
+  string frp_config_path = 14;
+  string frp_config_sha256 = 15;
+  bytes frp_config_content = 16;
+  string frp_config_discovery_state = 17;
+  repeated ConfigCandidate frp_config_candidates = 18;
+}
+
+message ConfigCandidate {
+  string binary_path = 1;
+  string config_path = 2;
+  string service_name = 3;
+  string source = 4;
+  string error = 5;
 }
 
 message DeploymentRisk {

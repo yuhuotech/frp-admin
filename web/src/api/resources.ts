@@ -136,6 +136,7 @@ export const upgradesApi = {
     return normalizePage(await api.get<Page<UpgradePlan> | UpgradePlan[]>(`/upgrade-plans?${params.toString()}`));
   },
   get: (id: string) => api.get<UpgradePlanResult>(`/upgrade-plans/${encodeURIComponent(id)}`),
+  latestForNode: (nodeId: string) => api.get<import('./types').FRPRelease>(`/nodes/${encodeURIComponent(nodeId)}/frp-releases/latest`),
   create: (input: { node_id: string; version: string; artifact_url: string; sha256: string }) => api.post<UpgradePlanResult>('/upgrade-plans', input, { 'Idempotency-Key': crypto.randomUUID() }),
   cancel: (id: string) => api.post<UpgradePlanResult>(`/upgrade-plans/${encodeURIComponent(id)}/cancel`),
 };

@@ -10,6 +10,7 @@ const (
 	OperationServiceRestart      = "service_restart"
 	OperationScan                = "scan_deployment_risks"
 	OperationInspect             = "inspect_config_resource"
+	OperationReadConfig          = "read_config"
 	OperationRestrictPermissions = "restrict_config_permissions"
 	OperationApplyAdminLoopback  = "apply_admin_loopback"
 )
@@ -35,5 +36,6 @@ type Response struct {
 	CompletedKinds    []agentv1.DeploymentRiskKind `json:"completedKinds,omitempty"`
 	ScanErrorCode     string                       `json:"scanErrorCode,omitempty"`
 	ResourceSHA       string                       `json:"resourceSHA,omitempty"`
+	ConfigContent     []byte                       `json:"configContent,omitempty"`
 	ServiceStatus     *agentv1.ServiceStatus       `json:"serviceStatus,omitempty"`
 }

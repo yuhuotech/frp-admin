@@ -24,7 +24,7 @@ func (f fixedSecurity) Collect(context.Context) securitycheck.Result { return f.
 
 func TestSecurityScanContinuesWhenServiceStatusIsUnavailable(t *testing.T) {
 	kind := agentv1.DeploymentRiskKind_DEPLOYMENT_RISK_KIND_CONFIG_TOKEN_PERMISSIONS
-	collector := New("", "frpc", unavailableService{}, fixedSecurity{result: securitycheck.Result{
+	collector := New("", "", "frpc", "configured", nil, unavailableService{}, fixedSecurity{result: securitycheck.Result{
 		Findings: []*agentv1.DeploymentRisk{{Kind: kind}}, CompletedKinds: []agentv1.DeploymentRiskKind{kind}, Complete: true,
 	}})
 	result, err := collector.Collect(context.Background())

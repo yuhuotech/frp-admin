@@ -81,6 +81,7 @@ func New(a *auth.Service, n *node.Service, t *task.Service, u *upgrade.Service, 
 			r.Get("/nodes/{id}", api.getNode)
 			r.With(api.requireRoles("admin")).Patch("/nodes/{id}/management-mode", api.csrf(api.setNodeManagementMode))
 			r.Get("/nodes/{id}/runtime", api.getNodeRuntime)
+			r.Get("/nodes/{id}/frp-releases/latest", api.latestFRPRelease)
 			r.With(api.requireRoles("admin", "operator")).Post("/nodes/{id}/inspect", api.csrf(api.inspectNode))
 			r.With(api.requireRoles("admin", "operator")).Post("/nodes/{id}/runtime-collections", api.csrf(api.collectNodeRuntime))
 			r.With(api.requireRoles("admin", "operator")).Post("/nodes/{id}/risk-scans", api.csrf(api.scanNodeRisks))
@@ -874,6 +875,14 @@ func (a *API) createUpgradePlan(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{"plan": upgradePlanDTO(v.Plan), "task": taskDTO(v.Task)})
 }
+func (a *API) latestFRPRelease(w http.ResponseWriter, r *http.Request) {
+	release, err := a.upgrades.LatestRelease(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		storeProblem(w, r, "latest FRP release", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, release)
+}
 func (a *API) listUpgradePlans(w http.ResponseWriter, r *http.Request) {
 	page, e := a.upgrades.List(r.Context(), queryInt(r, "limit"), r.URL.Query().Get("cursor"), r.URL.Query().Get("nodeId"), r.URL.Query().Get("state"))
 	if e != nil {
@@ -1282,7 +1291,7 @@ func userDTO(u domain.User) any {
 }
 func nodeDTO(n domain.Node) any {
 	status, serviceStatus := "unknown", "unknown"
-	var agentVersion, frpVersion, lastHeartbeat any
+	var agentVersion, frpVersion, lastHeartbeat, operatingSystem, architecture, binaryPath, configPath, discoveryState any
 	var observedRevision any
 	capabilities := []string{}
 	if n.Observation != nil {
@@ -1296,6 +1305,21 @@ func nodeDTO(n domain.Node) any {
 		}
 		if n.Observation.AgentVersion != "" {
 			agentVersion = n.Observation.AgentVersion
+		}
+		if n.Observation.OperatingSystem != "" {
+			operatingSystem = n.Observation.OperatingSystem
+		}
+		if n.Observation.Architecture != "" {
+			architecture = n.Observation.Architecture
+		}
+		if n.Observation.FrpBinaryPath != "" {
+			binaryPath = n.Observation.FrpBinaryPath
+		}
+		if n.Observation.FrpConfigPath != "" {
+			configPath = n.Observation.FrpConfigPath
+		}
+		if n.Observation.ConfigDiscoveryState != "" {
+			discoveryState = n.Observation.ConfigDiscoveryState
 		}
 		if n.Observation.FRPVersion != "" {
 			frpVersion = n.Observation.FRPVersion
@@ -1314,7 +1338,7 @@ func nodeDTO(n domain.Node) any {
 	}
 	labels := map[string]string{}
 	_ = json.Unmarshal([]byte(n.Labels), &labels)
-	return map[string]any{"id": n.ID, "name": n.Name, "role": n.Role, "labels": labels, "management_mode": n.ManagementMode, "status": status, "service_status": serviceStatus, "agent_version": agentVersion, "frp_version": frpVersion, "capabilities": capabilities, "desired_revision": desiredRevision, "observed_revision": observedRevision, "drifted": desiredRevision != nil && desiredRevision != observedRevision, "last_heartbeat_at": lastHeartbeat, "created_at": n.CreatedAt}
+	return map[string]any{"id": n.ID, "name": n.Name, "role": n.Role, "labels": labels, "management_mode": n.ManagementMode, "status": status, "service_status": serviceStatus, "agent_version": agentVersion, "frp_version": frpVersion, "os": operatingSystem, "arch": architecture, "frp_binary_path": binaryPath, "frp_config_path": configPath, "config_discovery_state": discoveryState, "capabilities": capabilities, "desired_revision": desiredRevision, "observed_revision": observedRevision, "drifted": desiredRevision != nil && desiredRevision != observedRevision, "last_heartbeat_at": lastHeartbeat, "created_at": n.CreatedAt}
 }
 func taskDTO(t domain.Task) any {
 	steps := make([]any, 0, len(t.Steps))

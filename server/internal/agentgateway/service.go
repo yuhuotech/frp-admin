@@ -37,6 +37,7 @@ type Service struct {
 	mu           sync.Mutex
 	sessions     map[string]*agentSession
 	materializer ConfigMaterializer
+	importer     ConfigImporter
 	upgrades     UpgradeMaterializer
 	alerter      AlertSink
 }
@@ -61,6 +62,7 @@ func NewService(s store.Store, p *pki.Manager, b *events.Bus, l *slog.Logger, ma
 }
 func (s *Service) SetAlertSink(v AlertSink)                     { s.alerter = v }
 func (s *Service) SetUpgradeMaterializer(v UpgradeMaterializer) { s.upgrades = v }
+func (s *Service) SetConfigImporter(v ConfigImporter)           { s.importer = v }
 
 func (s *Service) Enroll(ctx context.Context, req *agentv1.EnrollRequest) (*agentv1.EnrollResponse, error) {
 	role := protoRole(req.GetRole())
@@ -160,10 +162,18 @@ func (s *Service) Connect(stream agentv1.AgentControlService_ConnectServer) erro
 		case msg.GetInventory() != nil:
 			inv := msg.GetInventory()
 			obs.Online = true
+			if s.importer != nil && len(inv.GetFrpConfigContent()) > 0 && validConfigDiscoveryHash(inv.GetFrpConfigContent(), inv.GetFrpConfigSha256()) {
+				if _, importErr := s.importer.ImportDiscovered(stream.Context(), node.ID, inv.GetFrpConfigContent()); importErr != nil {
+					s.logger.WarnContext(stream.Context(), "discovered FRP config was not imported", "node_id", node.ID, "error", importErr)
+				}
+			}
 			obs.LastHeartbeat = now
 			if inv.GetFrpVersion() != "" {
 				obs.FRPVersion = truncate(inv.GetFrpVersion(), 64)
 			}
+			obs.OperatingSystem, obs.Architecture = truncate(inv.GetOperatingSystem(), 32), truncate(inv.GetArchitecture(), 32)
+			obs.FrpBinaryPath, obs.FrpConfigPath = truncate(inv.GetFrpBinaryPath(), 512), truncate(inv.GetFrpConfigPath(), 512)
+			obs.ConfigDiscoveryState, obs.ConfigSHA256 = truncate(inv.GetFrpConfigDiscoveryState(), 32), truncate(inv.GetFrpConfigSha256(), 128)
 			obs.ServiceState = serviceState(inv.GetService().GetState())
 			s.reconcileDeploymentRisks(stream.Context(), node.ID, "", inv)
 		case msg.GetCertificateRotationRequest() != nil:
@@ -324,6 +334,9 @@ func (s *Service) Connect(stream agentv1.AgentControlService_ConnectServer) erro
 			if inspectInventory != nil {
 				inv := inspectInventory
 				obs.FRPVersion = inv.GetFrpVersion()
+				obs.OperatingSystem, obs.Architecture = truncate(inv.GetOperatingSystem(), 32), truncate(inv.GetArchitecture(), 32)
+				obs.FrpBinaryPath, obs.FrpConfigPath = truncate(inv.GetFrpBinaryPath(), 512), truncate(inv.GetFrpConfigPath(), 512)
+				obs.ConfigDiscoveryState, obs.ConfigSHA256 = truncate(inv.GetFrpConfigDiscoveryState(), 32), truncate(inv.GetFrpConfigSha256(), 128)
 				obs.ServiceState = serviceState(inv.GetService().GetState())
 				obs.LastHeartbeat = now
 				if err = s.store.UpsertObservation(stream.Context(), obs); err != nil {
@@ -512,6 +525,10 @@ func (s *Service) triggerDeploymentRisks(ctx context.Context, nodeID string, ris
 		return
 	}
 	s.reconcileDeploymentRisks(ctx, nodeID, "", inventory)
+}
+func validConfigDiscoveryHash(content []byte, expected string) bool {
+	h := sha256.Sum256(content)
+	return len(content) <= 1<<20 && strings.EqualFold(hex.EncodeToString(h[:]), strings.TrimSpace(expected))
 }
 func truncate(v string, max int) string {
 	r := []rune(v)

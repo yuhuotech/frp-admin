@@ -11,18 +11,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/frp-admin/frp-admin/agent/internal/discovery"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	ServerURL string  `yaml:"serverURL"`
-	Role      string  `yaml:"role"`
-	NodeID    string  `yaml:"nodeID"`
-	StateDir  string  `yaml:"stateDir"`
-	TLS       TLS     `yaml:"tls"`
-	FRP       FRP     `yaml:"frp"`
-	Channel   Channel `yaml:"channel"`
-	Upgrade   Upgrade `yaml:"upgrade"`
+	ServerURL              string                `yaml:"serverURL"`
+	Role                   string                `yaml:"role"`
+	NodeID                 string                `yaml:"nodeID"`
+	StateDir               string                `yaml:"stateDir"`
+	TLS                    TLS                   `yaml:"tls"`
+	FRP                    FRP                   `yaml:"frp"`
+	FRPDiscoveryState      string                `yaml:"-"`
+	FRPDiscoveryCandidates []discovery.Candidate `yaml:"-"`
+	Channel                Channel               `yaml:"channel"`
+	Upgrade                Upgrade               `yaml:"upgrade"`
 }
 
 type TLS struct {
@@ -72,6 +75,9 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("parse config: %w", err)
 	}
 	c.defaults()
+	detected := discovery.Resolve(c.Role, c.FRP.ServiceName, c.FRP.BinaryPath, c.FRP.ConfigPath)
+	c.FRP.ServiceName, c.FRP.BinaryPath, c.FRP.ConfigPath = detected.ServiceName, detected.BinaryPath, detected.ConfigPath
+	c.FRPDiscoveryState, c.FRPDiscoveryCandidates = detected.State, detected.Candidates
 	if err := c.loadAdminAPIPassword(); err != nil {
 		return Config{}, err
 	}

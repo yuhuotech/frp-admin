@@ -255,7 +255,7 @@ func Test03ConcurrentMutationRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer j.Close()
-	commands := executor.New(j, inventory.New(binaryPath, serviceName, target), target).WithConfigManager(configs)
+	commands := executor.New(j, inventory.New(binaryPath, configPath, serviceName, "configured", nil, target), target).WithConfigManager(configs)
 	content := validConfig("concurrent")
 	first := &agentv1.Command{CommandId: "e2e-concurrent-1", Action: &agentv1.Command_ApplyConfig{ApplyConfig: &agentv1.ApplyConfigCommand{Revision: "e2e-concurrent", Sha256: digest(content), Content: content, Strategy: "restart"}}}
 	done := make(chan *agentv1.CommandResult, 1)

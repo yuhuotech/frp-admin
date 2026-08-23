@@ -5,8 +5,10 @@ stateDir: /var/lib/frp-agent
 tls:
   serverName: admin.example.com
 frp:
+  # The Agent auto-discovers these values from systemd/launchd, the running
+  # process command line, and known FRP installation paths when omitted.
   serviceName: frpc.service
-  # macOS launchd label and plist path. Leave empty on Linux/systemd.
+  # macOS launchd label and plist path. Leave launchdPlistPath empty on Linux.
   # serviceName: homebrew.mxcl.frpc
   # launchdPlistPath: /Users/your-user/Library/LaunchAgents/homebrew.mxcl.frpc.plist
   binaryPath: /opt/frp/bin/frpc

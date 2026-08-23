@@ -40,6 +40,7 @@ export function NodeDetailPage() {
     onSuccess: (result) => { setUpgradeOpen(false); upgradeForm.resetFields(); message.success('升级任务已创建'); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${result.task.id}`); },
     onError: (error) => message.error(error.message),
   });
+  const latestRelease = useQuery({ queryKey: ['frp-release', id], queryFn: () => upgradesApi.latestForNode(id), enabled: upgradeOpen, staleTime: 5 * 60_000, retry: false });
   const serviceAction = useMutation({
     mutationFn: (action: keyof typeof serviceActions) => {
       assertNodeOperation(queryClient.getQueryData<NodeSummary>(['nodes', id]), { capability: `service.${action}`, label: `服务${serviceActions[action].label}`, requireManaged: true, role: user?.role });
@@ -89,7 +90,7 @@ export function NodeDetailPage() {
     { key: 'hostname', label: '主机名', children: node.hostname || '-' }, { key: 'role', label: '角色', children: <Tag>{node.role === 'server' ? 'frps' : 'frpc'}</Tag> }, { key: 'system', label: '系统', children: `${node.os || '-'} / ${node.arch || '-'}` },
     { key: 'mode', label: '管理模式', children: <Tag color={managed ? 'blue' : 'default'}>{managed ? '托管' : '观察'}</Tag> },
     { key: 'connect', label: 'Agent 连接', children: <StatusTag value={node.status} /> }, { key: 'service', label: 'frp 服务', children: <StatusTag value={node.service_status} /> }, { key: 'heartbeat', label: '最后心跳', children: formatTime(node.last_heartbeat_at) },
-    { key: 'frp', label: 'frp 版本', children: node.frp_version || '-' }, { key: 'agent', label: 'Agent 版本', children: node.agent_version || '-' }, { key: 'revision', label: '配置版本', children: <span className={node.drifted ? 'text-warning' : ''}>{node.observed_revision ?? '-'} / {node.desired_revision ?? '-'}</span> },
+    { key: 'frp', label: 'frp 版本', children: node.frp_version || '-' }, { key: 'agent', label: 'Agent 版本', children: node.agent_version || '-' }, { key: 'config-path', label: '配置文件', children: <Typography.Text code>{node.frp_config_path || '-'}</Typography.Text> }, { key: 'discovery', label: '配置发现', children: node.config_discovery_state || '-' }, { key: 'revision', label: '配置版本', children: <span className={node.drifted ? 'text-warning' : ''}>{node.observed_revision ?? '-'} / {node.desired_revision ?? '-'}</span> },
   ]} /></div>;
   return <div className="page-stack">
     <div className="page-heading"><Space><Button type="text" aria-label="返回" icon={<ArrowLeftOutlined />} onClick={() => navigate('/nodes')} /><div><Typography.Title level={3}>{node.name}</Typography.Title><Space><StatusTag value={node.status} /><Typography.Text type="secondary">{node.id}</Typography.Text></Space></div></Space>{canMutate && <Space wrap>
@@ -102,6 +103,7 @@ export function NodeDetailPage() {
     <Tabs items={[{ key: 'overview', label: '概览', children: overview }, { key: 'proxies', label: '代理', children: <div className="content-panel"><Link to={`/proxies?nodeId=${encodeURIComponent(id)}`}>查看该节点代理</Link></div> }, { key: 'config', label: '配置', children: <div className="content-panel">{managed ? <Link to={`/nodes/${id}/configuration`}>进入配置中心</Link> : <Typography.Text type="secondary">观察模式不允许配置变更</Typography.Text>}</div> }, { key: 'tasks', label: '任务', children: <div className="content-panel"><Link to={`/tasks?node_id=${id}`}>查看该节点全部任务</Link></div> }, { key: 'monitoring', label: '监控', children: <EmptyState description="暂无监控数据" /> }]} />
     <Modal title={`升级 ${node.role === 'server' ? 'frps' : 'frpc'}`} open={upgradeOpen} okText="创建升级任务" cancelText="取消" confirmLoading={upgrade.isPending} onCancel={() => setUpgradeOpen(false)} onOk={() => upgradeForm.submit()} destroyOnHidden>
       <Typography.Paragraph type="secondary">升级会先下载并校验 SHA-256，再由 Agent 原子替换二进制并恢复服务。请使用官方制品地址和校验值，不要在生产节点上跳过校验。</Typography.Paragraph>
+      <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}><Button onClick={() => void latestRelease.refetch()} loading={latestRelease.isFetching}>检查 GitHub 最新版本</Button>{latestRelease.data && <Typography.Text type="secondary">最新版本：{latestRelease.data.tag_name}{latestRelease.data.recommended ? `；已匹配 ${latestRelease.data.recommended.os}/${latestRelease.data.recommended.arch} 制品` : '；未找到带 SHA-256 的匹配制品'}</Typography.Text>}{latestRelease.data?.recommended && <Button type="link" onClick={() => { const asset = latestRelease.data!.recommended!; upgradeForm.setFieldsValue({ version: latestRelease.data!.tag_name, artifact_url: asset.url, sha256: asset.sha256 }); }}>使用匹配制品填充表单</Button>}</Space>
       <Form form={upgradeForm} layout="vertical" onFinish={(values) => upgrade.mutate(values)}>
         <Form.Item name="version" label="目标版本" rules={[{ required: true, message: '请输入目标版本' }]}><Input placeholder="例如 v0.69.1" /></Form.Item>
         <Form.Item name="artifact_url" label="制品 URL" rules={[{ required: true, type: 'url', message: '请输入有效的制品 URL' }]}><Input placeholder="https://.../frp_*.tar.gz" /></Form.Item>

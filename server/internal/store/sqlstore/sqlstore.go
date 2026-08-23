@@ -235,8 +235,8 @@ func (s *Store) ConsumeEnrollmentTokenAndCreateNode(ctx context.Context, tokenHa
 
 func (s *Store) UpsertObservation(ctx context.Context, o domain.NodeObservation) error {
 	defer observeSQL(time.Now())
-	query := s.q("UPDATE node_observations SET online=?,agent_version=?,frp_version=?,service_state=?,observed_hash=?,observed_revision_id=?,capabilities=?,last_heartbeat=? WHERE node_id=?")
-	args := []any{o.Online, o.AgentVersion, o.FRPVersion, o.ServiceState, o.ObservedHash, o.ObservedRevisionID, o.Capabilities, micros(o.LastHeartbeat), o.NodeID}
+	query := s.q("UPDATE node_observations SET online=?,agent_version=?,frp_version=?,service_state=?,observed_hash=?,observed_revision_id=?,capabilities=?,last_heartbeat=?,operating_system=?,architecture=?,frp_binary_path=?,frp_config_path=?,config_discovery_state=?,config_sha256=? WHERE node_id=?")
+	args := []any{o.Online, o.AgentVersion, o.FRPVersion, o.ServiceState, o.ObservedHash, o.ObservedRevisionID, o.Capabilities, micros(o.LastHeartbeat), o.OperatingSystem, o.Architecture, o.FrpBinaryPath, o.FrpConfigPath, o.ConfigDiscoveryState, o.ConfigSHA256, o.NodeID}
 	result, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
@@ -246,7 +246,7 @@ func (s *Store) UpsertObservation(ctx context.Context, o domain.NodeObservation)
 		return err
 	}
 	if rows == 0 {
-		_, err = s.db.ExecContext(ctx, s.q("INSERT INTO node_observations(node_id,online,agent_version,frp_version,service_state,observed_hash,observed_revision_id,capabilities,last_heartbeat) VALUES(?,?,?,?,?,?,?,?,?)"), o.NodeID, o.Online, o.AgentVersion, o.FRPVersion, o.ServiceState, o.ObservedHash, o.ObservedRevisionID, o.Capabilities, micros(o.LastHeartbeat))
+		_, err = s.db.ExecContext(ctx, s.q("INSERT INTO node_observations(node_id,online,agent_version,frp_version,service_state,observed_hash,observed_revision_id,capabilities,last_heartbeat,operating_system,architecture,frp_binary_path,frp_config_path,config_discovery_state,config_sha256) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"), o.NodeID, o.Online, o.AgentVersion, o.FRPVersion, o.ServiceState, o.ObservedHash, o.ObservedRevisionID, o.Capabilities, micros(o.LastHeartbeat), o.OperatingSystem, o.Architecture, o.FrpBinaryPath, o.FrpConfigPath, o.ConfigDiscoveryState, o.ConfigSHA256)
 		if err != nil {
 			if errors.Is(translate(err), storepkg.ErrConflict) {
 				_, err = s.db.ExecContext(ctx, query, args...)
@@ -279,9 +279,10 @@ func scanNode(row interface{ Scan(...any) error }) (domain.Node, error) {
 	var ca, ua int64
 	var online sql.NullBool
 	var av, fv, ss, oh, capabilities sql.NullString
+	var operatingSystem, architecture, binaryPath, configPath, discoveryState, configSHA sql.NullString
 	var observed sql.NullString
 	var hb sql.NullInt64
-	err := row.Scan(&n.ID, &n.Name, &n.Role, &n.Labels, &n.ManagementMode, &desired, &ca, &ua, &online, &av, &fv, &ss, &oh, &observed, &capabilities, &hb)
+	err := row.Scan(&n.ID, &n.Name, &n.Role, &n.Labels, &n.ManagementMode, &desired, &ca, &ua, &online, &av, &fv, &ss, &oh, &observed, &capabilities, &hb, &operatingSystem, &architecture, &binaryPath, &configPath, &discoveryState, &configSHA)
 	if err != nil {
 		return n, translate(err)
 	}
@@ -291,7 +292,7 @@ func scanNode(row interface{ Scan(...any) error }) (domain.Node, error) {
 	n.CreatedAt = instant(ca)
 	n.UpdatedAt = instant(ua)
 	if online.Valid {
-		o := domain.NodeObservation{NodeID: n.ID, Online: online.Bool, AgentVersion: av.String, FRPVersion: fv.String, ServiceState: ss.String, ObservedHash: oh.String, Capabilities: capabilities.String}
+		o := domain.NodeObservation{NodeID: n.ID, Online: online.Bool, AgentVersion: av.String, FRPVersion: fv.String, ServiceState: ss.String, ObservedHash: oh.String, Capabilities: capabilities.String, OperatingSystem: operatingSystem.String, Architecture: architecture.String, FrpBinaryPath: binaryPath.String, FrpConfigPath: configPath.String, ConfigDiscoveryState: discoveryState.String, ConfigSHA256: configSHA.String}
 		if observed.Valid {
 			o.ObservedRevisionID = &observed.String
 		}
@@ -303,7 +304,7 @@ func scanNode(row interface{ Scan(...any) error }) (domain.Node, error) {
 	return n, nil
 }
 
-const nodeSelect = "SELECT n.id,n.name,n.role,n.labels,n.management_mode,n.desired_revision_id,n.created_at,n.updated_at,o.online,o.agent_version,o.frp_version,o.service_state,o.observed_hash,o.observed_revision_id,o.capabilities,o.last_heartbeat FROM nodes n LEFT JOIN node_observations o ON o.node_id=n.id"
+const nodeSelect = "SELECT n.id,n.name,n.role,n.labels,n.management_mode,n.desired_revision_id,n.created_at,n.updated_at,o.online,o.agent_version,o.frp_version,o.service_state,o.observed_hash,o.observed_revision_id,o.capabilities,o.last_heartbeat,o.operating_system,o.architecture,o.frp_binary_path,o.frp_config_path,o.config_discovery_state,o.config_sha256 FROM nodes n LEFT JOIN node_observations o ON o.node_id=n.id"
 
 func (s *Store) ListNodes(ctx context.Context, limit int, cursor string) (domain.Page[domain.Node], error) {
 	defer observeSQL(time.Now())
@@ -432,10 +433,18 @@ func (s *Store) CreateConfigRevision(ctx context.Context, v domain.ConfigRevisio
 	if e != nil {
 		return e
 	}
-	if mode != "managed" {
+	if mode != "managed" && v.Mode != "discovered" {
 		return storepkg.ErrObserveOnly
 	}
-	if _, e = tx.ExecContext(ctx, s.q("INSERT INTO config_revisions(id,node_id,version,encrypted_content,nonce,sha256,strategy,created_by,created_at,mode,sensitive_fields) VALUES(?,?,?,?,?,?,?,?,?,?,?)"), v.ID, v.NodeID, v.Version, v.EncryptedContent, v.Nonce, v.SHA256, v.Strategy, v.CreatedBy, micros(v.CreatedAt), v.Mode, v.SensitiveFields); e != nil {
+	createdBy := v.CreatedBy
+	if v.Mode == "discovered" {
+		// config_revisions.created_by is a users FK. Discovery is an agent event,
+		// so attribute the immutable snapshot to the first active administrator.
+		if e = tx.QueryRowContext(ctx, s.q("SELECT id FROM users WHERE status='active' ORDER BY created_at,id LIMIT 1")).Scan(&createdBy); e != nil {
+			return translate(e)
+		}
+	}
+	if _, e = tx.ExecContext(ctx, s.q("INSERT INTO config_revisions(id,node_id,version,encrypted_content,nonce,sha256,strategy,created_by,created_at,mode,sensitive_fields) VALUES(?,?,?,?,?,?,?,?,?,?,?)"), v.ID, v.NodeID, v.Version, v.EncryptedContent, v.Nonce, v.SHA256, v.Strategy, createdBy, micros(v.CreatedAt), v.Mode, v.SensitiveFields); e != nil {
 		return translate(e)
 	}
 	if e = s.appendMutationAudit(ctx, tx); e != nil {

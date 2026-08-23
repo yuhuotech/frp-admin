@@ -26,6 +26,17 @@ func (c Client) Collect(ctx context.Context) securitycheck.Result {
 		Complete: len(response.ScanErrorCode) == 0, ErrorCode: response.ScanErrorCode}
 }
 
+func (c Client) ReadConfig(ctx context.Context) ([]byte, error) {
+	response, err := c.Execute(ctx, Request{Operation: OperationReadConfig})
+	if err != nil {
+		return nil, err
+	}
+	if response.ErrorCode != 0 {
+		return nil, errors.New("privileged config read failed")
+	}
+	return response.ConfigContent, nil
+}
+
 func (c Client) Probe(ctx context.Context) error {
 	response, err := c.Execute(ctx, Request{Operation: OperationProbe})
 	if err != nil {

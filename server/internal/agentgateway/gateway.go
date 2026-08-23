@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/frp-admin/frp-admin/server/internal/domain"
 )
 
 var (
@@ -37,6 +39,9 @@ type ConfigMaterial struct {
 }
 type ConfigMaterializer interface {
 	Materialize(context.Context, string) (ConfigMaterial, error)
+}
+type ConfigImporter interface {
+	ImportDiscovered(context.Context, string, []byte) (domain.ConfigRevision, error)
 }
 
 type UpgradeMaterial struct {
