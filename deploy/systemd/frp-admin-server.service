@@ -1,0 +1,50 @@
+[Unit]
+Description=frp-admin control plane
+Documentation=https://github.com/frp-admin/frp-admin
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=frp-admin
+Group=frp-admin
+UMask=0077
+ExecStart=/usr/local/bin/frp-admin-server -config /etc/frp-admin/server.yaml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+StateDirectory=frp-admin
+StateDirectoryMode=0700
+RuntimeDirectory=frp-admin
+RuntimeDirectoryMode=0700
+ConfigurationDirectory=frp-admin
+ConfigurationDirectoryMode=0750
+LoadCredential=database-dsn:/etc/frp-admin/database-dsn
+Environment=FRP_ADMIN_DATABASE_DSN_FILE=%d/database-dsn
+Environment=FRP_ADMIN_MASTER_KEY_FILE=/var/lib/frp-admin/master.key
+Environment=FRP_ADMIN_PKI_DIRECTORY=/var/lib/frp-admin/pki
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/frp-admin /run/frp-admin
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+{
+  "Role": "server",
+  "BinaryPath": "/opt/frp/bin/frps",
+  "ConfigPath": "/etc/frp/frps.toml",
+  "ServiceName": "frps.service",
+  "StateDir": "/var/lib/frp-agent-helper"
+}

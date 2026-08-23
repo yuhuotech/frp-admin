@@ -1,0 +1,94 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Button, Descriptions, message, Modal, Space, Tabs, Tag, Tooltip, Typography } from 'antd';
+import { ArrowLeftOutlined, CaretRightOutlined, DatabaseOutlined, EyeOutlined, ReloadOutlined, SafetyCertificateOutlined, SearchOutlined, StopOutlined } from '@ant-design/icons';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { nodesApi } from '../api/resources';
+import { EmptyState, PageError, PageLoading } from '../components/AsyncState';
+import { StatusTag } from '../components/StatusTag';
+import { formatTime } from '../utils/format';
+import { useAuth } from '../app/AuthContext';
+import { canOperate } from '../utils/permissions';
+import type { NodeSummary } from '../api/types';
+import { assertNodeOperation, nodeOperationBlockedReason } from '../utils/nodeCapabilities';
+
+const serviceActions = {
+  start: { label: '启动', icon: <CaretRightOutlined />, danger: false },
+  stop: { label: '停止', icon: <StopOutlined />, danger: true },
+  restart: { label: '重启', icon: <ReloadOutlined />, danger: true },
+} as const;
+
+export function NodeDetailPage() {
+  const { id = '' } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ['nodes', id], queryFn: () => nodesApi.get(id), enabled: Boolean(id) });
+  const inspect = useMutation({ mutationFn: () => nodesApi.inspect(id), onSuccess: (task) => { message.success('检查任务已创建'); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${task.id}`); }, onError: (error) => message.error(error.message) });
+  const collectRuntime = useMutation({
+    mutationFn: () => {
+      assertNodeOperation(queryClient.getQueryData<NodeSummary>(['nodes', id]), { capability: 'runtime.collect', label: '运行态采集', role: user?.role });
+      return nodesApi.collectRuntime(id);
+    },
+    onSuccess: (task) => { message.success('运行态采集任务已创建'); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${task.id}`); },
+    onError: (error) => message.error(error.message),
+  });
+  const serviceAction = useMutation({
+    mutationFn: (action: keyof typeof serviceActions) => {
+      assertNodeOperation(queryClient.getQueryData<NodeSummary>(['nodes', id]), { capability: `service.${action}`, label: `服务${serviceActions[action].label}`, requireManaged: true, role: user?.role });
+      return nodesApi.serviceAction(id, action);
+    },
+    onSuccess: (task, action) => { message.success(`${serviceActions[action].label}任务已创建`); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${task.id}`); },
+    onError: (error) => message.error(error.message),
+  });
+  const updateMode = useMutation({
+    mutationFn: (mode: 'observe' | 'managed') => nodesApi.updateManagementMode(id, mode),
+    onSuccess: (updated) => { queryClient.setQueryData(['nodes', id], updated); void queryClient.invalidateQueries({ queryKey: ['nodes'] }); message.success(updated.management_mode === 'managed' ? '节点已切换为托管模式' : '节点已切换为观察模式'); },
+    onError: (error) => message.error(error.message),
+  });
+  if (query.isLoading) return <PageLoading />;
+  if (query.isError) return <PageError error={query.error} retry={() => void query.refetch()} />;
+  const node = query.data!;
+  const canMutate = canOperate(user?.role);
+  const agentOnline = node.status === 'online';
+  const managed = node.management_mode === 'managed';
+  const runtimeReason = nodeOperationBlockedReason(node, { capability: 'runtime.collect', label: '运行态采集', role: user?.role });
+  const confirmServiceAction = (action: keyof typeof serviceActions) => {
+    const reason = nodeOperationBlockedReason(node, { capability: `service.${action}`, label: `服务${serviceActions[action].label}`, requireManaged: true, role: user?.role });
+    if (reason) { message.error(reason); return; }
+    const item = serviceActions[action];
+    Modal.confirm({
+      title: `${item.label} ${node.name} 的 frp 服务？`,
+      content: '该操作会创建异步任务，执行结果可在任务详情中查看。',
+      okText: `确认${item.label}`,
+      okButtonProps: { danger: item.danger },
+      cancelText: '取消',
+      onOk: () => serviceAction.mutateAsync(action),
+    });
+  };
+  const confirmMode = () => {
+    const mode = managed ? 'observe' : 'managed';
+    Modal.confirm({
+      title: mode === 'managed' ? `托管 ${node.name}？` : `将 ${node.name} 切换为观察模式？`,
+      content: mode === 'managed' ? '托管模式允许远程服务操作、配置发布和升级。' : '观察模式只采集状态，服务操作、配置变更和升级将被禁止。',
+      okText: mode === 'managed' ? '确认托管' : '确认观察',
+      okButtonProps: { danger: mode === 'managed' },
+      cancelText: '取消',
+      onOk: () => updateMode.mutateAsync(mode),
+    });
+  };
+  const overview = <div className="content-panel"><Descriptions bordered size="small" column={{ xs: 1, sm: 2, xl: 3 }} items={[
+    { key: 'hostname', label: '主机名', children: node.hostname || '-' }, { key: 'role', label: '角色', children: <Tag>{node.role === 'server' ? 'frps' : 'frpc'}</Tag> }, { key: 'system', label: '系统', children: `${node.os || '-'} / ${node.arch || '-'}` },
+    { key: 'mode', label: '管理模式', children: <Tag color={managed ? 'blue' : 'default'}>{managed ? '托管' : '观察'}</Tag> },
+    { key: 'connect', label: 'Agent 连接', children: <StatusTag value={node.status} /> }, { key: 'service', label: 'frp 服务', children: <StatusTag value={node.service_status} /> }, { key: 'heartbeat', label: '最后心跳', children: formatTime(node.last_heartbeat_at) },
+    { key: 'frp', label: 'frp 版本', children: node.frp_version || '-' }, { key: 'agent', label: 'Agent 版本', children: node.agent_version || '-' }, { key: 'revision', label: '配置版本', children: <span className={node.drifted ? 'text-warning' : ''}>{node.observed_revision ?? '-'} / {node.desired_revision ?? '-'}</span> },
+  ]} /></div>;
+  return <div className="page-stack">
+    <div className="page-heading"><Space><Button type="text" aria-label="返回" icon={<ArrowLeftOutlined />} onClick={() => navigate('/nodes')} /><div><Typography.Title level={3}>{node.name}</Typography.Title><Space><StatusTag value={node.status} /><Typography.Text type="secondary">{node.id}</Typography.Text></Space></div></Space>{canMutate && <Space wrap>
+      {user?.role === 'admin' && <Button icon={managed ? <EyeOutlined /> : <SafetyCertificateOutlined />} loading={updateMode.isPending} onClick={confirmMode}>{managed ? '切换为观察' : '切换为托管'}</Button>}
+      {(Object.keys(serviceActions) as Array<keyof typeof serviceActions>).map((action) => { const reason = nodeOperationBlockedReason(node, { capability: `service.${action}`, label: `服务${serviceActions[action].label}`, requireManaged: true, role: user?.role }); return <Tooltip key={action} title={reason}><span><Button danger={serviceActions[action].danger} icon={serviceActions[action].icon} disabled={Boolean(reason)} loading={serviceAction.isPending && serviceAction.variables === action} onClick={() => confirmServiceAction(action)}>{serviceActions[action].label}</Button></span></Tooltip>; })}
+      <Tooltip title={runtimeReason}><span><Button icon={<DatabaseOutlined />} disabled={Boolean(runtimeReason)} loading={collectRuntime.isPending} onClick={() => collectRuntime.mutate()}>采集运行态</Button></span></Tooltip>
+      <Tooltip title={agentOnline ? '' : 'Agent 离线，无法立即检查'}><Button type="primary" icon={<SearchOutlined />} disabled={!agentOnline} loading={inspect.isPending} onClick={() => inspect.mutate()}>立即检查</Button></Tooltip>
+    </Space>}</div>
+    <Tabs items={[{ key: 'overview', label: '概览', children: overview }, { key: 'proxies', label: '代理', children: <div className="content-panel"><Link to={`/proxies?nodeId=${encodeURIComponent(id)}`}>查看该节点代理</Link></div> }, { key: 'config', label: '配置', children: <div className="content-panel">{managed ? <Link to={`/nodes/${id}/configuration`}>进入配置中心</Link> : <Typography.Text type="secondary">观察模式不允许配置变更</Typography.Text>}</div> }, { key: 'tasks', label: '任务', children: <div className="content-panel"><Link to={`/tasks?node_id=${id}`}>查看该节点全部任务</Link></div> }, { key: 'monitoring', label: '监控', children: <EmptyState description="暂无监控数据" /> }]} />
+  </div>;
+}

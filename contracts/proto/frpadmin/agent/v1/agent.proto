@@ -1,0 +1,351 @@
+syntax = "proto3";
+
+package frpadmin.agent.v1;
+
+option go_package = "github.com/frp-admin/frp-admin/contracts/gen/go/frpadmin/agent/v1;agentv1";
+
+service AgentControlService {
+  rpc Enroll(EnrollRequest) returns (EnrollResponse);
+  rpc Connect(stream AgentToServer) returns (stream ServerToAgent);
+}
+
+enum NodeRole {
+  NODE_ROLE_UNSPECIFIED = 0;
+  NODE_ROLE_CLIENT = 1;
+  NODE_ROLE_SERVER = 2;
+}
+
+enum ServiceAction {
+  SERVICE_ACTION_UNSPECIFIED = 0;
+  SERVICE_ACTION_STATUS = 1;
+  SERVICE_ACTION_START = 2;
+  SERVICE_ACTION_STOP = 3;
+  SERVICE_ACTION_RESTART = 4;
+}
+
+enum ServiceState {
+  SERVICE_STATE_UNSPECIFIED = 0;
+  SERVICE_STATE_ACTIVE = 1;
+  SERVICE_STATE_INACTIVE = 2;
+  SERVICE_STATE_FAILED = 3;
+  SERVICE_STATE_ACTIVATING = 4;
+  SERVICE_STATE_DEACTIVATING = 5;
+  SERVICE_STATE_UNKNOWN = 6;
+}
+
+enum CommandStatus {
+  COMMAND_STATUS_UNSPECIFIED = 0;
+  COMMAND_STATUS_SUCCEEDED = 1;
+  COMMAND_STATUS_FAILED = 2;
+  COMMAND_STATUS_CANCELLED = 3;
+}
+
+// ErrorCode values are stable API. New failures must be appended, never renumbered.
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_INTERNAL = 1;
+  ERROR_CODE_INVALID_COMMAND = 2;
+  ERROR_CODE_UNSUPPORTED_COMMAND = 3;
+  ERROR_CODE_COMMAND_EXPIRED = 4;
+  ERROR_CODE_PRECONDITION_FAILED = 5;
+  ERROR_CODE_VERIFY_FAILED = 6;
+  ERROR_CODE_HEALTHCHECK_FAILED = 7;
+  ERROR_CODE_CHECKSUM_MISMATCH = 8;
+  ERROR_CODE_SERVICE_OPERATION_FAILED = 9;
+  ERROR_CODE_PERMISSION_DENIED = 10;
+  ERROR_CODE_CANCELLED = 11;
+  ERROR_CODE_BUSY = 12;
+  ERROR_CODE_OPERATION_IN_PROGRESS = 13;
+  ERROR_CODE_DISK_SPACE_INSUFFICIENT = 14;
+  ERROR_CODE_UNSAFE_PATH = 15;
+  ERROR_CODE_RECOVERY_FAILED = 16;
+  ERROR_CODE_CERTIFICATE_ROTATION_FAILED = 17;
+  ERROR_CODE_ADMIN_API_UNAVAILABLE = 18;
+  ERROR_CODE_ADMIN_API_RESPONSE_TOO_LARGE = 19;
+  ERROR_CODE_ADMIN_API_INVALID_RESPONSE = 20;
+}
+
+enum RuntimeProxyStatus {
+  RUNTIME_PROXY_STATUS_UNSPECIFIED = 0;
+  RUNTIME_PROXY_STATUS_RUNNING = 1;
+  RUNTIME_PROXY_STATUS_OFFLINE = 2;
+  RUNTIME_PROXY_STATUS_ERROR = 3;
+  RUNTIME_PROXY_STATUS_UNKNOWN = 4;
+}
+
+enum DeploymentRiskKind {
+  DEPLOYMENT_RISK_KIND_UNSPECIFIED = 0;
+  DEPLOYMENT_RISK_KIND_ADMIN_API_NON_LOOPBACK = 1;
+  DEPLOYMENT_RISK_KIND_CONFIG_TOKEN_PERMISSIONS = 2;
+  DEPLOYMENT_RISK_KIND_PROXY_NAME_CONFLICT = 3;
+}
+
+enum DeploymentRiskRepairAction {
+  DEPLOYMENT_RISK_REPAIR_ACTION_UNSPECIFIED = 0;
+  DEPLOYMENT_RISK_REPAIR_ACTION_RESTRICT_CONFIG_PERMISSIONS = 1;
+  DEPLOYMENT_RISK_REPAIR_ACTION_BIND_ADMIN_API_LOOPBACK = 2;
+}
+
+message EnrollRequest {
+  string enrollment_token = 1;
+  bytes public_key_pem = 2;
+  NodeRole role = 3;
+  string hostname = 4;
+  string machine_fingerprint = 5;
+  string agent_version = 6;
+}
+
+message EnrollResponse {
+  string node_id = 1;
+  bytes certificate_pem = 2;
+  bytes ca_certificate_pem = 3;
+  int64 certificate_expires_at_unix_ms = 4;
+}
+
+message AgentToServer {
+  oneof payload {
+    Hello hello = 1;
+    Heartbeat heartbeat = 2;
+    Inventory inventory = 3;
+    CommandAck command_ack = 4;
+    CommandProgress command_progress = 5;
+    CommandResult command_result = 6;
+    CertificateRotationRequest certificate_rotation_request = 9;
+  }
+}
+
+message ServerToAgent {
+  oneof payload {
+    Welcome welcome = 1;
+    Command command = 2;
+    CancelCommand cancel_command = 3;
+    RotateCertificate rotate_certificate = 4;
+  }
+}
+
+message Hello {
+  string node_id = 1;
+  string boot_id = 2;
+  string agent_version = 3;
+  string frp_version = 4;
+  NodeRole role = 5;
+  uint32 protocol_version = 6;
+  repeated string capabilities = 7;
+}
+
+message Welcome {
+  string session_id = 1;
+  int64 server_time_unix_ms = 2;
+  uint32 heartbeat_interval_seconds = 3;
+}
+
+message Heartbeat {
+  int64 sent_at_unix_ms = 1;
+  string session_id = 2;
+  uint64 sequence = 3;
+}
+
+message Inventory {
+  string hostname = 1;
+  string operating_system = 2;
+  string architecture = 3;
+  string kernel_version = 4;
+  string frp_binary_path = 5;
+  string frp_version = 6;
+  string service_name = 7;
+  ServiceStatus service = 8;
+  int64 collected_at_unix_ms = 9;
+  repeated DeploymentRisk deployment_risks = 10;
+  // False means collection was partial or failed and MUST NOT resolve findings.
+  bool deployment_risk_scan_complete = 11;
+  string deployment_risk_scan_error_code = 12;
+  // Rules whose required inputs were collected successfully. An absent
+  // finding may only advance resolution when its kind appears here.
+  repeated DeploymentRiskKind deployment_risk_completed_kinds = 13;
+}
+
+message DeploymentRisk {
+  DeploymentRiskKind kind = 1;
+  // Redacted, bounded evidence only. Configuration secrets are forbidden.
+  string evidence = 2;
+  string confidence = 3;
+  string rule_version = 4;
+  // SHA-256 of the redacted repair-relevant resource state used for CAS precheck.
+  string resource_fingerprint = 5;
+}
+
+message ServiceStatus {
+  ServiceState state = 1;
+  string sub_state = 2;
+  int64 main_pid = 3;
+  int32 exit_code = 4;
+}
+
+message Command {
+  string command_id = 1;
+  string idempotency_key = 2;
+  int64 issued_at_unix_ms = 3;
+  int64 expires_at_unix_ms = 4;
+  oneof action {
+    InspectCommand inspect = 10;
+    ServiceCommand service = 11;
+    ApplyConfigCommand apply_config = 12;
+    UpgradeFrpCommand upgrade_frp = 13;
+    RollbackConfigCommand rollback_config = 14;
+    CollectRuntimeCommand collect_runtime = 15;
+    RepairDeploymentRiskCommand repair_deployment_risk = 16;
+  }
+}
+
+message InspectCommand {}
+
+message ServiceCommand {
+  ServiceAction action = 1;
+  ServiceState expected_state = 2;
+}
+
+message ApplyConfigCommand {
+  string revision = 1;
+  string sha256 = 2;
+  bytes content = 3;
+  string strategy = 4;
+}
+
+message UpgradeFrpCommand {
+  string version = 1;
+  string artifact_url = 2;
+  string sha256 = 3;
+}
+
+message RollbackConfigCommand {
+  string target_revision = 1;
+}
+
+message CollectRuntimeCommand {
+  string detail_level = 1;
+}
+
+message RepairDeploymentRiskCommand {
+  string finding_id = 1;
+  DeploymentRiskKind kind = 2;
+  DeploymentRiskRepairAction action = 3;
+  bool maintenance_confirmed = 4;
+  string expected_resource_fingerprint = 5;
+  // Present only for configuration-changing repairs derived by the control plane.
+  string candidate_revision = 6;
+  string candidate_sha256 = 7;
+  bytes candidate_content = 8;
+  string candidate_strategy = 9;
+}
+
+message CancelCommand {
+  string command_id = 1;
+  string reason = 2;
+}
+
+message RotateCertificate {
+  bytes certificate_pem = 1;
+  bytes ca_certificate_pem = 2;
+  int64 certificate_expires_at_unix_ms = 3;
+  string request_id = 4;
+}
+
+message CertificateRotationRequest {
+  string request_id = 1;
+  string current_serial = 2;
+  bytes csr_pem = 3;
+  int64 certificate_expires_at_unix_ms = 4;
+}
+
+message CommandAck {
+  string command_id = 1;
+  int64 received_at_unix_ms = 2;
+  bool replayed = 3;
+}
+
+message CommandProgress {
+  string command_id = 1;
+  uint32 percent = 2;
+  string stage = 3;
+  int64 occurred_at_unix_ms = 4;
+}
+
+message CommandResult {
+  string command_id = 1;
+  string idempotency_key = 2;
+  CommandStatus status = 3;
+  ErrorCode error_code = 4;
+  string diagnostic = 5;
+  int64 started_at_unix_ms = 6;
+  int64 finished_at_unix_ms = 7;
+  oneof output {
+    InspectResult inspect = 10;
+    ServiceResult service = 11;
+    RuntimeResult runtime = 12;
+    RepairDeploymentRiskResult repair_deployment_risk = 13;
+  }
+}
+
+message InspectResult {
+  Inventory inventory = 1;
+}
+
+message ServiceResult {
+  ServiceStatus status = 1;
+}
+
+message RuntimeResult {
+  RuntimeSnapshot snapshot = 1;
+}
+
+message RepairDeploymentRiskResult {
+  bool precheck_passed = 1;
+  bool backup_created = 2;
+  string backup_id = 3;
+  bool changed = 4;
+  bool rollback_attempted = 5;
+  bool rollback_succeeded = 6;
+  Inventory inventory = 7;
+  string applied_revision = 8;
+  string applied_sha256 = 9;
+}
+
+message RuntimeSnapshot {
+  NodeRole role = 1;
+  int64 collected_at_unix_ms = 2;
+  string frp_version = 3;
+  repeated RuntimeProxy proxies = 4;
+  repeated RuntimeClient clients = 5;
+  RuntimeServer server = 6;
+}
+
+message RuntimeProxy {
+  string name = 1;
+  string type = 2;
+  RuntimeProxyStatus status = 3;
+  string local_address = 4;
+  string remote_address = 5;
+  string last_error = 6;
+  RuntimeTraffic traffic = 7;
+}
+
+message RuntimeClient {
+  string id = 1;
+  string address = 2;
+  int64 connected_at_unix_ms = 3;
+}
+
+message RuntimeServer {
+  string bind_address = 1;
+  uint32 bind_port = 2;
+  uint32 proxy_count = 3;
+  uint32 client_count = 4;
+}
+
+message RuntimeTraffic {
+  int64 bytes_in = 1;
+  int64 bytes_out = 2;
+  int64 today_bytes_in = 3;
+  int64 today_bytes_out = 4;
+  int64 current_connections = 5;
+}

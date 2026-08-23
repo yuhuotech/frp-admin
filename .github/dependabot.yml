@@ -1,0 +1,55 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /agent
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      agent-go-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      server-go-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /contracts
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      contracts-go-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      web-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

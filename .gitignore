@@ -1,0 +1,30 @@
+.DS_Store
+.idea/
+.vscode/
+
+# Go
+bin/
+coverage/
+*.test
+*.out
+
+# Node
+node_modules/
+web/dist/
+web/coverage/
+
+# Runtime data and secrets
+data/
+*.db
+*.db-shm
+*.db-wal
+*.pem
+*.key
+*.crt
+.env
+.env.local
+soak-results/
+
+# Generated local configuration
+agent.yaml
+server.yaml

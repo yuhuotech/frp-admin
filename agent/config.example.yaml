@@ -1,0 +1,21 @@
+serverURL: https://admin.example.com:8443
+role: client
+nodeID: ""
+stateDir: /var/lib/frp-agent
+tls:
+  serverName: admin.example.com
+frp:
+  serviceName: frpc.service
+  binaryPath: /opt/frp/bin/frpc
+  configPath: /etc/frp/frpc.toml
+  helperSocket: /run/frp-agent-helper.sock
+channel:
+  heartbeatInterval: 15s
+  reconnectMin: 1s
+  reconnectMax: 1m
+upgrade:
+  allowedHosts:
+    - github.com
+    - objects.githubusercontent.com
+    - release-assets.githubusercontent.com
+  maxArtifactBytes: 268435456

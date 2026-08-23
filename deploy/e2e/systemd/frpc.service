@@ -1,0 +1,17 @@
+[Unit]
+Description=frpc E2E fixture
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/local/libexec/frp-e2e-prestart /etc/frp/frpc.toml
+ExecStart=/opt/frp/bin/frpc -c /etc/frp/frpc.toml
+Restart=no
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/run
+
+[Install]
+WantedBy=multi-user.target

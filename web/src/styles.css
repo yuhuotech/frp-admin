@@ -1,0 +1,53 @@
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; min-width: 320px; min-height: 100%; }
+body { background: #f4f6f8; color: #1f2937; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.app-shell { min-height: 100vh; }
+.app-sider { position: sticky !important; top: 0; height: 100vh; }
+.brand { height: 64px; display: flex; align-items: center; gap: 10px; padding: 0 20px; color: white; font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; }
+.brand-mark { display: inline-flex; flex: 0 0 28px; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 6px; background: #1677ff; color: #fff; font-weight: 700; }
+.app-header { position: sticky; top: 0; z-index: 10; height: 56px; padding: 0 20px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; }
+.user-menu { cursor: pointer; }
+.app-content { min-width: 0; padding: 20px; }
+.page-stack { display: flex; flex-direction: column; gap: 16px; max-width: 1600px; margin: 0 auto; }
+.page-heading { min-height: 48px; display: flex; gap: 16px; align-items: center; justify-content: space-between; }
+.page-heading h3, .section-title h5, .login-title h2 { margin: 0 !important; }
+.content-panel, .metric { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; }
+.metric { height: 104px; }
+.metric-suffix { margin-left: 8px; font-size: 13px; color: #6b7280; }
+.section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.table-panel { padding: 0; overflow: hidden; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.search-input { width: min(320px, 100%); }
+.cell-secondary { color: #6b7280; font-size: 12px; margin-top: 2px; }
+.text-warning { color: #d46b08; font-weight: 500; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.placeholder { min-height: 320px; display: grid; place-items: center; }
+.screen-loading { min-height: 100vh; display: grid; place-items: center; }
+.login-page { min-height: 100vh; background: #eef2f6; display: grid; place-items: center; padding: 24px; }
+.login-panel { width: min(400px, 100%); background: #fff; border: 1px solid #dfe3e8; border-radius: 6px; padding: 32px; box-shadow: 0 8px 24px rgba(15, 23, 42, .08); }
+.login-title { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.login-title .brand-mark { width: 40px; height: 40px; flex-basis: 40px; font-size: 20px; }
+.login-panel .ant-alert { margin-bottom: 20px; }
+.secret-field, .command-field { margin: 8px 0 14px; }
+.result-note { margin: 16px 0 0 !important; }
+.config-editor .ant-alert { margin-bottom: 14px; }
+.config-textarea { line-height: 1.55 !important; }
+.table-heading { padding: 16px 16px 0; }
+.table-link { height: auto; padding: 0; }
+.config-preview { max-height: 480px; overflow: auto; margin: 16px 0 0; padding: 14px; border: 1px solid #e5e7eb; background: #f7f8fa; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cursor-pagination { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #e5e7eb; }
+.modal-loading { min-height: 180px; display: grid; place-items: center; }
+.clickable-row { cursor: pointer; }
+.clickable-row:hover td { background: #f5f8fc !important; }
+.risk-evidence { padding: 12px; border: 1px solid #e5e7eb; background: #f7f8fa; white-space: pre-wrap; overflow-wrap: anywhere; }
+.modal-actions { margin-top: 20px; }
+@media (max-width: 767px) {
+  .app-content { padding: 12px; }
+  .app-header { padding: 0 12px; }
+  .toolbar { align-items: stretch; flex-direction: column; }
+  .search-input { width: 100%; }
+  .page-heading { align-items: flex-start; }
+  .page-heading > .ant-space { justify-content: flex-end; flex-wrap: wrap; }
+  .user-menu .ant-typography { display: none; }
+  .login-panel { padding: 24px; }
+}

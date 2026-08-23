@@ -1,0 +1,24 @@
+http:
+  address: ":8080"
+grpc:
+  address: ":8443"
+pki:
+  directory: ./data/pki
+  serverNames:
+    - control
+masterKey:
+  file: ./data/master.key
+  currentVersion: new
+  keyFiles:
+    old: ./data/keyring/old.key
+    new: ./data/keyring/new.key
+database:
+  driver: sqlite
+  dsn: ./data/frp-admin.db
+auth:
+  secureCookies: false
+  sessionTTL: 1h
+log:
+  level: info
+bootstrap:
+  token: controlplane-e2e-bootstrap

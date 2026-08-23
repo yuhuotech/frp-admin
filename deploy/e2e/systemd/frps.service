@@ -1,0 +1,15 @@
+[Unit]
+Description=frps E2E fixture
+After=network.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/local/libexec/frp-e2e-prestart /etc/frp/frps.toml
+ExecStart=/opt/frp/bin/frps -c /etc/frp/frps.toml
+Restart=on-failure
+RestartSec=1s
+User=root
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

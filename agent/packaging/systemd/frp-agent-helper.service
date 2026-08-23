@@ -1,0 +1,23 @@
+[Unit]
+Description=frp-admin constrained privileged helper
+Requires=frp-agent-helper.socket
+After=frp-agent-helper.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/frp-agent-helper
+User=root
+Group=root
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/frp-agent-helper /etc/frp /opt/frp
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true

@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+if [ -e /run/frp-admin-e2e/fail-upgrade-start ]; then
+  rm -f /run/frp-admin-e2e/fail-upgrade-start
+  exit 1
+fi
+
+config_path="${1:-/etc/frp/frpc.toml}"
+case "$config_path" in
+  /etc/frp/frpc.toml) failure_marker=/run/frp-e2e-config-failed-frpc ;;
+  /etc/frp/frps.toml) failure_marker=/run/frp-e2e-config-failed-frps ;;
+  *) exit 2 ;;
+esac
+
+if grep -q '^# E2E_FAIL_START_ONCE$' "$config_path" && [ ! -e "$failure_marker" ]; then
+  touch "$failure_marker"
+  exit 1
+fi
+
+if grep -Eq '^serverPort[[:space:]]*=[[:space:]]*65530$' "$config_path"; then
+  sleep 3
+fi

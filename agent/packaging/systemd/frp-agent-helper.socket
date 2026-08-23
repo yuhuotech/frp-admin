@@ -1,0 +1,12 @@
+[Unit]
+Description=frp-admin privileged helper socket
+
+[Socket]
+ListenStream=/run/frp-agent-helper.sock
+SocketUser=root
+SocketGroup=frp-agent
+SocketMode=0660
+RemoveOnStop=true
+
+[Install]
+WantedBy=sockets.target

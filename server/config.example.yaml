@@ -1,0 +1,40 @@
+http:
+  address: ":8080"
+grpc:
+  address: ":8443"
+pki:
+  directory: ./data/pki
+  serverNames:
+    - localhost
+masterKey:
+  file: ./data/master.key
+  currentVersion: "1"
+  keyFiles: {}
+database:
+  driver: sqlite
+  dsn: ./data/frp-admin.db
+auth:
+  secureCookies: true
+  sessionTTL: 168h
+log:
+  level: info
+# Prefer FRP_ADMIN_BOOTSTRAP_TOKEN or a mounted secret in production.
+bootstrap:
+  token: ""
+alerting:
+  webhookURL: ""
+  webhookSecretFile: ""
+  # Optional exact hostname allowlist. Defaults to the hostname in webhookURL.
+  allowedHosts: []
+  # Private/loopback destinations can expose internal services. Enabling them
+  # requires an explicit allowedHosts entry and should be limited to trusted networks.
+  allowPrivateAddresses: false
+metrics:
+  # Disabled by default. Bind only to loopback or an operations network.
+  address: ""
+tasks:
+  timeouts:
+    inspect: 2m
+    service: 2m
+    config: 5m
+    upgrade: 30m
