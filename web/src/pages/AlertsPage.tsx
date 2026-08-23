@@ -34,7 +34,7 @@ export function AlertsPage() {
     }
     Modal.confirm({ title: '关闭该告警？', content: '关闭后不能回退到待处理状态。', okText: '确认关闭', okButtonProps: { danger: true }, cancelText: '取消', onOk: execute });
   };
-  return <div className="page-stack"><div className="page-heading"><div><Typography.Title level={3}>告警</Typography.Title><Typography.Text type="secondary">当前故障与恢复状态</Typography.Text></div><Button icon={<ReloadOutlined />} loading={query.isFetching} onClick={() => void query.refetch()}>刷新</Button></div>
+  return <div className="page-stack"><div className="page-heading"><div><Typography.Title level={3}>告警中心</Typography.Title><Typography.Text type="secondary">系统自动生成的故障与恢复状态；告警不能手工新增，处理方式是确认、恢复或关闭</Typography.Text></div><Button icon={<ReloadOutlined />} loading={query.isFetching} onClick={() => void query.refetch()}>刷新</Button></div>
     <div className="toolbar"><Segmented aria-label="告警状态" value={state} onChange={setState} options={[{ label: '全部', value: '' }, { label: '待处理', value: 'open' }, { label: '已确认', value: 'acknowledged' }, { label: '已恢复', value: 'resolved' }, { label: '已关闭', value: 'closed' }]} /></div>
     {query.isError ? <PageError error={query.error} retry={() => void query.refetch()} /> : <div className="content-panel table-panel"><Table<AlertSummary> rowKey="id" size="middle" loading={query.isLoading} dataSource={query.data?.items} scroll={{ x: 980 }} locale={{ emptyText: '当前没有告警' }} columns={[
       { title: '告警', width: 300, render: (_, row) => <div><strong>{row.kind}</strong><div className="cell-secondary">{row.message}</div></div> },

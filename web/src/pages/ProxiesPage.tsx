@@ -1,63 +1,61 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Button, Descriptions, Drawer, Segmented, Select, Space, Table, Typography } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Button, Descriptions, Drawer, Form, Input, InputNumber, Modal, Select, Segmented, Space, Table, Tag, Typography, message } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useSearchParams } from 'react-router-dom';
-import { nodesApi, proxiesApi } from '../api/resources';
+import { nodesApi, proxyConfigApi, proxiesApi } from '../api/resources';
 import { PageError, PageLoading } from '../components/AsyncState';
 import { StatusTag } from '../components/StatusTag';
 import { formatBytes } from '../utils/display';
 import { formatTime } from '../utils/format';
-import type { ProxySummary } from '../api/types';
+import type { ProxyConfig, ProxySummary } from '../api/types';
+import { useAuth } from '../app/AuthContext';
+import { canOperate } from '../utils/permissions';
 
-const proxyTypes = ['tcp', 'udp', 'http', 'https', 'stcp', 'xtcp', 'tcpmux'].map((value) => ({ value, label: value }));
+const proxyTypes = ['tcp', 'udp', 'http', 'https', 'stcp', 'xtcp', 'tcpmux'].map((value) => ({ value, label: value.toUpperCase() }));
+type ProxyForm = { name: string; type: string; local_ip?: string; local_port: number; remote_port?: number; custom_domains?: string; subdomain?: string; strategy: 'reload' | 'restart' };
+
+function configValue(proxy: Partial<ProxyConfig>, snake: string, camel: string) { return proxy[snake] ?? proxy[camel]; }
 
 export function ProxiesPage() {
   const [params] = useSearchParams();
+  const { user } = useAuth();
+  const [view, setView] = useState<'runtime' | 'config'>('runtime');
   const [nodeId, setNodeId] = useState(() => params.get('nodeId') ?? '');
   const [status, setStatus] = useState('');
   const [type, setType] = useState<string>();
   const [cursor, setCursor] = useState<string>();
   const [history, setHistory] = useState<string[]>([]);
   const [selected, setSelected] = useState<{ nodeId: string; name: string }>();
+  const [configEditing, setConfigEditing] = useState<ProxyConfig>();
+  const [configOpen, setConfigOpen] = useState(false);
+  const [form] = Form.useForm<ProxyForm>();
+  const queryClient = useQueryClient();
   const nodes = useQuery({ queryKey: ['nodes', 'proxy-filter'], queryFn: () => nodesApi.list('limit=200') });
-  const query = useQuery({ queryKey: ['proxies', nodeId, status, type, cursor], queryFn: () => proxiesApi.list({ nodeId, status, type, cursor, limit: 50 }), refetchInterval: 30_000 });
+  const query = useQuery({ queryKey: ['proxies', nodeId, status, type, cursor], queryFn: () => proxiesApi.list({ nodeId, status, type, cursor, limit: 50 }), enabled: view === 'runtime', refetchInterval: 30_000 });
+  const configs = useQuery({ queryKey: ['proxy-config', nodeId], queryFn: () => proxyConfigApi.list(nodeId), enabled: view === 'config' && Boolean(nodeId) });
   const detail = useQuery({ queryKey: ['proxies', selected?.nodeId, selected?.name], queryFn: () => proxiesApi.get(selected!.nodeId, selected!.name), enabled: Boolean(selected) });
-  const proxy = detail.data;
+  const mutateConfig = useMutation({
+    mutationFn: (values: ProxyForm) => proxyConfigApi.upsert(nodeId, { ...values, local_ip: values.local_ip ?? '127.0.0.1', custom_domains: values.custom_domains ? values.custom_domains.split(',').map((value) => value.trim()).filter(Boolean) : [], strategy: values.strategy }),
+    onSuccess: async () => { message.success('代理配置已保存，发布任务已创建'); setConfigOpen(false); form.resetFields(); await Promise.all([queryClient.invalidateQueries({ queryKey: ['proxy-config', nodeId] }), queryClient.invalidateQueries({ queryKey: ['proxies'] }), queryClient.invalidateQueries({ queryKey: ['tasks'] })]); },
+    onError: (error) => message.error(error.message),
+  });
+  const removeConfig = useMutation({ mutationFn: (name: string) => proxyConfigApi.remove(nodeId, name), onSuccess: async () => { message.success('代理已删除，发布任务已创建'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['proxy-config', nodeId] }), queryClient.invalidateQueries({ queryKey: ['proxies'] }), queryClient.invalidateQueries({ queryKey: ['tasks'] })]); }, onError: (error) => message.error(error.message) });
   const resetPage = () => { setCursor(undefined); setHistory([]); };
-  const next = () => { if (query.data?.next_cursor) { setHistory((value) => [...value, cursor ?? '']); setCursor(query.data.next_cursor); } };
-  const previous = () => { const prior = history.at(-1); setHistory((value) => value.slice(0, -1)); setCursor(prior || undefined); };
+  const openEditor = (proxy?: ProxyConfig) => {
+    setConfigEditing(proxy); form.setFieldsValue({ name: String(proxy?.name ?? ''), type: String(proxy?.type ?? 'tcp'), local_ip: String(configValue(proxy ?? {}, 'local_ip', 'localIP') ?? '127.0.0.1'), local_port: Number(configValue(proxy ?? {}, 'local_port', 'localPort') ?? 0), remote_port: Number(configValue(proxy ?? {}, 'remote_port', 'remotePort') ?? 0) || undefined, custom_domains: (configValue(proxy ?? {}, 'custom_domains', 'customDomains') as string[] | undefined)?.join(', ') ?? '', subdomain: String(proxy?.subdomain ?? ''), strategy: 'restart' }); setConfigOpen(true);
+  };
+  const remove = (proxy: ProxyConfig) => Modal.confirm({ title: `删除代理 ${proxy.name}？`, content: '删除会基于当前托管配置生成新修订并重启/重载 frpc，原配置仍可在配置历史中回滚。', okText: '确认删除', okButtonProps: { danger: true }, cancelText: '取消', onOk: () => removeConfig.mutateAsync(proxy.name) });
+  const proxyList = configs.data?.items ?? [];
+  const selectedNode = nodes.data?.items.find((node) => node.id === nodeId);
+  const canEdit = canOperate(user?.role) && selectedNode?.management_mode === 'managed';
   return <div className="page-stack">
-    <div className="page-heading"><div><Typography.Title level={3}>代理</Typography.Title><Typography.Text type="secondary">跨节点代理运行状态与流量</Typography.Text></div><Button icon={<ReloadOutlined />} loading={query.isFetching} onClick={() => void query.refetch()}>刷新</Button></div>
-    <div className="toolbar"><Space wrap>
-      <Select aria-label="节点" allowClear showSearch optionFilterProp="label" placeholder="全部节点" value={nodeId || undefined} onChange={(value) => { setNodeId(value ?? ''); resetPage(); }} loading={nodes.isLoading} options={nodes.data?.items.map((node) => ({ value: node.id, label: node.name }))} style={{ width: 220 }} />
-      <Select aria-label="代理类型" allowClear placeholder="全部类型" value={type} onChange={(value) => { setType(value); resetPage(); }} options={proxyTypes} style={{ width: 150 }} />
-    </Space><Segmented aria-label="代理状态" value={status} onChange={(value) => { setStatus(value); resetPage(); }} options={[{ label: '全部', value: '' }, { label: '运行中', value: 'running' }, { label: '离线', value: 'offline' }, { label: '错误', value: 'error' }]} /></div>
-    {query.isError ? <PageError error={query.error} retry={() => void query.refetch()} /> : <div className="content-panel table-panel"><Table<ProxySummary> rowKey={(row) => `${row.node_id}:${row.name}`} size="middle" loading={query.isLoading} dataSource={query.data?.items} scroll={{ x: 1250 }} locale={{ emptyText: '暂无代理运行数据' }} columns={[
-      { title: '代理', fixed: 'left', width: 190, render: (_, row) => <Button type="link" className="table-link" onClick={() => setSelected({ nodeId: row.node_id, name: row.name })}>{row.name}</Button> },
-      { title: '节点', dataIndex: 'node_name', width: 160, render: (value, row) => value || row.node_id },
-      { title: '类型', dataIndex: 'type', width: 90 },
-      { title: '状态', dataIndex: 'status', width: 100, render: (value) => <StatusTag value={value} /> },
-      { title: '本地端点', dataIndex: 'local_address', width: 190, render: (value) => <span className="mono">{value || '-'}</span> },
-      { title: '远端端点', dataIndex: 'remote_address', width: 190, render: (value) => <span className="mono">{value || '-'}</span> },
-      { title: '连接', dataIndex: ['traffic', 'current_connections'], width: 90, render: (value) => value ?? '-' },
-      { title: '累计流量', width: 150, render: (_, row) => `${formatBytes(row.traffic?.bytes_in)} / ${formatBytes(row.traffic?.bytes_out)}` },
-      { title: '错误', dataIndex: 'last_error', ellipsis: true, width: 220, render: (value) => value || '-' },
-      { title: '采集时间', dataIndex: 'collected_at', width: 170, render: formatTime },
-    ]} pagination={false} /><div className="cursor-pagination"><Typography.Text type="secondary">每页最多 50 条</Typography.Text><Space><Button disabled={!history.length || query.isFetching} onClick={previous}>上一页</Button><Button disabled={!query.data?.next_cursor || query.isFetching} onClick={next}>下一页</Button></Space></div></div>}
-    <Drawer title={selected?.name || '代理详情'} open={Boolean(selected)} width={560} onClose={() => setSelected(undefined)} destroyOnHidden>
-      {detail.isLoading ? <PageLoading /> : detail.isError ? <PageError error={detail.error} retry={() => void detail.refetch()} /> : proxy && <Descriptions bordered size="small" column={1} items={[
-        { key: 'node', label: '节点', children: proxy.node_name || proxy.node_id },
-        { key: 'type', label: '类型', children: proxy.type },
-        { key: 'status', label: '状态', children: <StatusTag value={proxy.status} /> },
-        { key: 'local', label: '本地端点', children: <span className="mono">{proxy.local_address || '-'}</span> },
-        { key: 'remote', label: '远端端点', children: <span className="mono">{proxy.remote_address || '-'}</span> },
-        { key: 'connections', label: '当前连接', children: proxy.traffic?.current_connections ?? '-' },
-        { key: 'total', label: '累计流入 / 流出', children: `${formatBytes(proxy.traffic?.bytes_in)} / ${formatBytes(proxy.traffic?.bytes_out)}` },
-        { key: 'today', label: '今日流入 / 流出', children: `${formatBytes(proxy.traffic?.today_bytes_in)} / ${formatBytes(proxy.traffic?.today_bytes_out)}` },
-        { key: 'error', label: '最近错误', children: proxy.last_error || '-' },
-        { key: 'collected', label: '采集时间', children: formatTime(proxy.collected_at) },
-      ]} />}
-    </Drawer>
+    <div className="page-heading"><div><Typography.Title level={3}>代理管理</Typography.Title><Typography.Text type="secondary">运行状态查看与托管配置的新增、修改、删除。每次变更都会生成配置修订并异步发布，可回滚。</Typography.Text></div><Space><Segmented value={view} onChange={(value) => { setView(value as 'runtime' | 'config'); resetPage(); }} options={[{ label: '运行状态', value: 'runtime' }, { label: '配置管理', value: 'config' }]} /><Button icon={<ReloadOutlined />} loading={view === 'runtime' ? query.isFetching : configs.isFetching} onClick={() => void (view === 'runtime' ? query.refetch() : configs.refetch())}>刷新</Button></Space></div>
+    <div className="toolbar"><Space wrap><Select aria-label="节点" allowClear showSearch optionFilterProp="label" placeholder="选择节点" value={nodeId || undefined} onChange={(value) => { setNodeId(value ?? ''); resetPage(); }} loading={nodes.isLoading} options={nodes.data?.items.map((node) => ({ value: node.id, label: `${node.name}（${node.role === 'server' ? 'frps' : 'frpc'}）` }))} style={{ width: 250 }} />{view === 'runtime' && <><Select aria-label="代理类型" allowClear placeholder="全部类型" value={type} onChange={(value) => { setType(value); resetPage(); }} options={proxyTypes} style={{ width: 150 }} /><Segmented aria-label="代理状态" value={status} onChange={(value) => { setStatus(value); resetPage(); }} options={[{ label: '全部', value: '' }, { label: '运行中', value: 'running' }, { label: '离线', value: 'offline' }, { label: '错误', value: 'error' }]} /></>}</Space></div>
+    {view === 'config' ? <section className="content-panel table-panel"><div className="table-heading"><Space direction="vertical" size={4}><Typography.Text strong>托管配置</Typography.Text><Typography.Text type="secondary">当前基于节点的期望配置编辑，不直接修改运行中的进程；提交后由 Agent 校验、发布并按策略重载或重启。</Typography.Text></Space><Button type="primary" icon={<PlusOutlined />} disabled={!nodeId || !canEdit} onClick={() => openEditor()}>新增代理</Button></div>{!nodeId ? <div className="placeholder"><Typography.Text type="secondary">请先选择节点</Typography.Text></div> : configs.isLoading ? <PageLoading /> : configs.isError ? <PageError error={configs.error} retry={() => void configs.refetch()} /> : <Table<ProxyConfig> rowKey={(row) => String(row.name)} dataSource={proxyList} pagination={false} locale={{ emptyText: '当前配置没有代理' }} columns={[{ title: '名称', dataIndex: 'name', render: (value) => <Typography.Text code>{value}</Typography.Text> }, { title: '类型', dataIndex: 'type', render: (value) => <Tag>{String(value).toUpperCase()}</Tag> }, { title: '本地端点', render: (_, row) => <span className="mono">{String(configValue(row, 'local_ip', 'localIP') ?? '-')}:{String(configValue(row, 'local_port', 'localPort') ?? '-')}</span> }, { title: '远端端口', render: (_, row) => String(configValue(row, 'remote_port', 'remotePort') ?? '-') }, { title: '域名/子域名', render: (_, row) => String(configValue(row, 'custom_domains', 'customDomains') ?? row.subdomain ?? '-') }, { title: '操作', width: 160, render: (_, row) => <Space><Button size="small" icon={<EditOutlined />} disabled={!canEdit} onClick={() => openEditor(row)}>编辑</Button><Button size="small" danger icon={<DeleteOutlined />} disabled={!canEdit || removeConfig.isPending} onClick={() => remove(row)}>删除</Button></Space> }]} />}</section> : <>
+      {query.isError ? <PageError error={query.error} retry={() => void query.refetch()} /> : <div className="content-panel table-panel"><Table<ProxySummary> rowKey={(row) => `${row.node_id}:${row.name}`} size="middle" loading={query.isLoading} dataSource={query.data?.items} scroll={{ x: 1250 }} locale={{ emptyText: '暂无代理运行数据，请确认节点在线并执行运行态采集' }} columns={[{ title: '代理', fixed: 'left', width: 190, render: (_, row) => <Button type="link" className="table-link" onClick={() => setSelected({ nodeId: row.node_id, name: row.name })}>{row.name}</Button> }, { title: '节点', dataIndex: 'node_name', width: 160, render: (value, row) => value || row.node_id }, { title: '类型', dataIndex: 'type', width: 90 }, { title: '状态', dataIndex: 'status', width: 100, render: (value) => <StatusTag value={value} /> }, { title: '本地端点', dataIndex: 'local_address', width: 190, render: (value) => <span className="mono">{value || '-'}</span> }, { title: '远端端点', dataIndex: 'remote_address', width: 190, render: (value) => <span className="mono">{value || '-'}</span> }, { title: '连接', dataIndex: ['traffic', 'current_connections'], width: 90, render: (value) => value ?? '-' }, { title: '累计流量', width: 150, render: (_, row) => `${formatBytes(row.traffic?.bytes_in)} / ${formatBytes(row.traffic?.bytes_out)}` }, { title: '错误', dataIndex: 'last_error', ellipsis: true, width: 220, render: (value) => value || '-' }, { title: '采集时间', dataIndex: 'collected_at', width: 170, render: formatTime }]} /><div className="cursor-pagination"><Typography.Text type="secondary">每页最多 50 条</Typography.Text><Space><Button disabled={!history.length || query.isFetching} onClick={() => { const prior = history.at(-1); setHistory((value) => value.slice(0, -1)); setCursor(prior || undefined); }}>上一页</Button><Button type="primary" disabled={!query.data?.next_cursor || query.isFetching} onClick={() => { if (query.data?.next_cursor) { setHistory((value) => [...value, cursor ?? '']); setCursor(query.data.next_cursor); } }}>下一页</Button></Space></div></div>}
+    </>}
+    <Drawer title={detail.data ? `代理 ${detail.data.name}` : '代理详情'} open={Boolean(selected)} onClose={() => setSelected(undefined)} loading={detail.isLoading} width={520}>{detail.data && <Descriptions column={1} bordered size="small" items={[{ key: 'node', label: '节点', children: detail.data.node_name }, { key: 'type', label: '类型', children: detail.data.type }, { key: 'status', label: '状态', children: <StatusTag value={detail.data.status} /> }, { key: 'local', label: '本地端点', children: detail.data.local_address || '-' }, { key: 'remote', label: '远端端点', children: detail.data.remote_address || '-' }, { key: 'error', label: '最近错误', children: detail.data.last_error || '-' }]} />}</Drawer>
+    <Modal title={configEditing ? `编辑代理 ${configEditing.name}` : '新增代理'} open={configOpen} okText="保存并发布" cancelText="取消" confirmLoading={mutateConfig.isPending} onCancel={() => setConfigOpen(false)} onOk={() => form.submit()} destroyOnHidden><Form form={form} layout="vertical" onFinish={(values) => mutateConfig.mutate(values)}><Form.Item name="name" label="代理名称" rules={[{ required: true, message: '请输入代理名称' }, { pattern: /^[A-Za-z0-9_.-]+$/, message: '仅支持字母、数字、下划线、点和短横线' }]}><Input disabled={Boolean(configEditing)} /></Form.Item><Form.Item name="type" label="类型" rules={[{ required: true }]}><Select options={proxyTypes} /></Form.Item><Form.Item name="local_ip" label="本地地址"><Input placeholder="127.0.0.1" /></Form.Item><Form.Item name="local_port" label="本地端口" rules={[{ required: true, type: 'number', min: 1, max: 65535, message: '请输入 1-65535 的端口' }]}><InputNumber style={{ width: '100%' }} /></Form.Item><Form.Item name="remote_port" label="远端端口（tcp/udp 必填）"><InputNumber style={{ width: '100%' }} min={1} max={65535} /></Form.Item><Form.Item name="custom_domains" label="自定义域名"><Input placeholder="多个域名用逗号分隔，仅 http/https 使用" /></Form.Item><Form.Item name="subdomain" label="子域名"><Input placeholder="仅 http/https 使用" /></Form.Item><Form.Item name="strategy" label="发布策略"><Select options={[{ value: 'restart', label: '重启（通用）' }, { value: 'reload', label: '热加载（仅 frpc）' }]} /></Form.Item></Form></Modal>
   </div>;
 }

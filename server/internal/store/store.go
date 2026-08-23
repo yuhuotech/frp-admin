@@ -65,6 +65,8 @@ type Store interface {
 	SecretByID(context.Context, string) (domain.Secret, error)
 	ListUsers(context.Context, int, string) (domain.Page[domain.User], error)
 	UpdateUserAccess(context.Context, string, string, string, time.Time) error
+	UpdateUserProfile(context.Context, string, string) error
+	UpdateUserPassword(context.Context, string, string, time.Time) error
 	ListNodes(context.Context, int, string) (domain.Page[domain.Node], error)
 	NodeByID(context.Context, string) (domain.Node, error)
 	SetNodeManagementMode(context.Context, string, string, time.Time) (domain.Node, error)

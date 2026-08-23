@@ -26,6 +26,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/pelletier/go-toml/v2"
 )
 
 const sessionCookie = "frp_admin_session"
@@ -73,6 +74,8 @@ func New(a *auth.Service, n *node.Service, t *task.Service, u *upgrade.Service, 
 			r.Use(api.authenticate)
 			r.Post("/auth/logout", api.csrf(api.logout))
 			r.Get("/users/me", api.me)
+			r.With(api.requireRoles("admin", "operator", "viewer", "auditor")).Patch("/users/me/profile", api.csrf(api.updateMyProfile))
+			r.With(api.requireRoles("admin", "operator", "viewer", "auditor")).Put("/users/me/password", api.csrf(api.changeMyPassword))
 			r.Get("/events", api.sse)
 			r.Get("/nodes", api.listNodes)
 			r.Get("/nodes/{id}", api.getNode)
@@ -98,6 +101,9 @@ func New(a *auth.Service, n *node.Service, t *task.Service, u *upgrade.Service, 
 			r.With(api.requireRoles("admin", "operator")).Post("/upgrade-plans/{id}/cancel", api.csrf(api.cancelUpgradePlan))
 			r.Get("/proxies", api.listRuntimeProxies)
 			r.Get("/proxies/{nodeId}/{name}", api.getRuntimeProxy)
+			r.Get("/nodes/{id}/proxy-config", api.listProxyConfig)
+			r.With(api.requireRoles("admin", "operator")).Post("/nodes/{id}/proxy-config", api.upsertProxyConfig)
+			r.With(api.requireRoles("admin", "operator")).Delete("/nodes/{id}/proxy-config/{name}", api.deleteProxyConfig)
 			r.With(api.requireRoles("admin", "operator", "viewer", "auditor")).Get("/alerts", api.listAlerts)
 			r.With(api.requireRoles("admin", "operator")).Post("/alerts/{id}/acknowledge", api.csrf(api.acknowledgeAlert))
 			r.With(api.requireRoles("admin", "operator")).Post("/alerts/{id}/resolve", api.csrf(api.resolveAlert))
@@ -279,6 +285,48 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 }
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, userDTO(mustPrincipal(r.Context()).User))
+}
+
+type profileRequest struct {
+	DisplayName string `json:"display_name"`
+}
+type passwordChangeRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+func (a *API) updateMyProfile(w http.ResponseWriter, r *http.Request) {
+	var in profileRequest
+	if !decode(w, r, &in) {
+		return
+	}
+	p := mustPrincipal(r.Context())
+	ctx := store.WithMutationAudit(r.Context(), store.MutationAudit{Actor: p.User.ID, RequestID: requestID(r.Context())})
+	u, err := a.auth.UpdateProfile(ctx, p.User.ID, in.DisplayName)
+	if err != nil {
+		problem(w, r, http.StatusBadRequest, "update profile failed", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, userDTO(u))
+}
+
+func (a *API) changeMyPassword(w http.ResponseWriter, r *http.Request) {
+	var in passwordChangeRequest
+	if !decode(w, r, &in) {
+		return
+	}
+	p := mustPrincipal(r.Context())
+	ctx := store.WithMutationAudit(r.Context(), store.MutationAudit{Actor: p.User.ID, RequestID: requestID(r.Context())})
+	err := a.auth.ChangePassword(ctx, p.User.ID, in.CurrentPassword, in.NewPassword)
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			problem(w, r, http.StatusUnauthorized, "current password is incorrect", nil)
+			return
+		}
+		problem(w, r, http.StatusBadRequest, "change password failed", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"changed": true, "reauthenticate": true})
 }
 
 func (a *API) listNodes(w http.ResponseWriter, r *http.Request) {
@@ -902,6 +950,202 @@ func (a *API) collectNodeRuntime(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, taskDTO(v))
 }
 
+type proxyConfigRequest struct {
+	Name          string   `json:"name"`
+	Type          string   `json:"type"`
+	LocalIP       string   `json:"local_ip"`
+	LocalPort     int      `json:"local_port"`
+	RemotePort    int      `json:"remote_port"`
+	CustomDomains []string `json:"custom_domains"`
+	Subdomain     string   `json:"subdomain"`
+	Strategy      string   `json:"strategy"`
+}
+
+func (a *API) proxyBase(ctx context.Context, nodeID string) (domain.Node, domain.ConfigRevision, map[string]any, []map[string]any, error) {
+	node, err := a.nodes.Get(ctx, nodeID)
+	if err != nil {
+		return domain.Node{}, domain.ConfigRevision{}, nil, nil, err
+	}
+	revisionID := ""
+	if node.DesiredRevisionID != nil {
+		revisionID = *node.DesiredRevisionID
+	} else {
+		// A newly enrolled node may have an imported revision that has not been
+		// deployed through the control plane yet. Use the newest revision as the
+		// editing base so existing configuration can still be discovered.
+		page, listErr := a.configs.List(ctx, nodeID, 1, "")
+		if listErr != nil || len(page.Items) == 0 {
+			return domain.Node{}, domain.ConfigRevision{}, nil, nil, errors.New("node has no managed configuration")
+		}
+		revisionID = page.Items[0].ID
+	}
+	rev, err := a.configs.Content(ctx, revisionID)
+	if err != nil {
+		return domain.Node{}, domain.ConfigRevision{}, nil, nil, err
+	}
+	var doc map[string]any
+	if err = toml.Unmarshal([]byte(rev.Content), &doc); err != nil {
+		return domain.Node{}, domain.ConfigRevision{}, nil, nil, fmt.Errorf("invalid desired configuration: %w", err)
+	}
+	proxies := make([]map[string]any, 0)
+	if raw, ok := doc["proxies"].([]map[string]any); ok {
+		proxies = raw
+	}
+	if raw, ok := doc["proxies"].([]any); ok {
+		for _, item := range raw {
+			if m, ok := item.(map[string]any); ok {
+				proxies = append(proxies, m)
+			}
+		}
+	}
+	return node, rev, doc, proxies, nil
+}
+
+func proxyDTO(proxy map[string]any) map[string]any {
+	out := map[string]any{}
+	for k, v := range proxy {
+		out[k] = v
+	}
+	if v, ok := proxy["localIP"]; ok {
+		out["local_ip"] = v
+	}
+	if v, ok := proxy["localPort"]; ok {
+		out["local_port"] = v
+	}
+	if v, ok := proxy["remotePort"]; ok {
+		out["remote_port"] = v
+	}
+	if v, ok := proxy["customDomains"]; ok {
+		out["custom_domains"] = v
+	}
+	return out
+}
+
+func (a *API) listProxyConfig(w http.ResponseWriter, r *http.Request) {
+	node, rev, _, proxies, err := a.proxyBase(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		storeProblem(w, r, "proxy configuration", err)
+		return
+	}
+	items := make([]map[string]any, 0, len(proxies))
+	for _, item := range proxies {
+		items = append(items, proxyDTO(item))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"node_id": node.ID, "revision_id": rev.ID, "revision_version": rev.Version, "items": items})
+}
+
+func (a *API) mutateProxyConfig(w http.ResponseWriter, r *http.Request, removeName string) {
+	p := mustPrincipal(r.Context())
+	node, rev, doc, proxies, err := a.proxyBase(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		storeProblem(w, r, "proxy configuration", err)
+		return
+	}
+	if node.ManagementMode != "managed" {
+		problem(w, r, http.StatusConflict, "node is in observe mode", nil)
+		return
+	}
+	var in proxyConfigRequest
+	if removeName == "" && !decode(w, r, &in) {
+		return
+	}
+	name := strings.TrimSpace(removeName)
+	if name == "" {
+		name = strings.TrimSpace(in.Name)
+	}
+	if name == "" || len(name) > 128 {
+		problem(w, r, http.StatusBadRequest, "proxy name is required", nil)
+		return
+	}
+	if removeName == "" {
+		if in.Type == "" {
+			problem(w, r, http.StatusBadRequest, "proxy type is required", nil)
+			return
+		}
+		if in.LocalPort < 1 || in.LocalPort > 65535 {
+			problem(w, r, http.StatusBadRequest, "local port must be between 1 and 65535", nil)
+			return
+		}
+		if in.Type == "tcp" || in.Type == "udp" || in.Type == "tcpmux" {
+			if in.RemotePort < 1 || in.RemotePort > 65535 {
+				problem(w, r, http.StatusBadRequest, "remote port must be between 1 and 65535", nil)
+				return
+			}
+		}
+	}
+	idx := -1
+	for i, item := range proxies {
+		if fmt.Sprint(item["name"]) == name {
+			idx = i
+			break
+		}
+	}
+	if removeName != "" {
+		if idx < 0 {
+			problem(w, r, http.StatusNotFound, "proxy not found", nil)
+			return
+		}
+		proxies = append(proxies[:idx], proxies[idx+1:]...)
+	} else {
+		item := map[string]any{}
+		if idx >= 0 {
+			item = proxies[idx]
+		}
+		item["name"], item["type"] = name, in.Type
+		item["localIP"], item["localPort"] = in.LocalIP, in.LocalPort
+		if in.RemotePort > 0 {
+			item["remotePort"] = in.RemotePort
+		} else {
+			delete(item, "remotePort")
+		}
+		if len(in.CustomDomains) > 0 {
+			item["customDomains"] = in.CustomDomains
+		} else {
+			delete(item, "customDomains")
+		}
+		if in.Subdomain != "" {
+			item["subdomain"] = in.Subdomain
+		} else {
+			delete(item, "subdomain")
+		}
+		if idx >= 0 {
+			proxies[idx] = item
+		} else {
+			proxies = append(proxies, item)
+		}
+	}
+	doc["proxies"] = proxies
+	content, err := toml.Marshal(doc)
+	if err != nil {
+		problem(w, r, http.StatusBadRequest, "serialize proxy configuration failed", err)
+		return
+	}
+	strategy := in.Strategy
+	if strategy == "" {
+		strategy = "restart"
+	}
+	ctx := store.WithMutationAudit(r.Context(), store.MutationAudit{Actor: p.User.ID, RequestID: requestID(r.Context())})
+	newRev, err := a.configs.Create(ctx, node.ID, p.User.ID, strategy, content)
+	if err != nil {
+		problem(w, r, http.StatusBadRequest, "create proxy configuration revision failed", err)
+		return
+	}
+	task, err := a.configs.Deploy(ctx, newRev.ID, p.User.ID, uuid.NewString())
+	if err != nil {
+		configTaskProblem(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]any{"revision": configRevisionDTO(newRev), "task": taskDTO(task)})
+	_ = rev
+}
+
+func (a *API) upsertProxyConfig(w http.ResponseWriter, r *http.Request) {
+	a.mutateProxyConfig(w, r, "")
+}
+func (a *API) deleteProxyConfig(w http.ResponseWriter, r *http.Request) {
+	a.mutateProxyConfig(w, r, chi.URLParam(r, "name"))
+}
+
 func (a *API) listRuntimeProxies(w http.ResponseWriter, r *http.Request) {
 	limit := queryInt(r, "limit")
 	if limit <= 0 {
@@ -1034,7 +1278,7 @@ func storeProblem(w http.ResponseWriter, r *http.Request, resource string, e err
 	}
 }
 func userDTO(u domain.User) any {
-	return map[string]any{"id": u.ID, "username": u.Username, "status": u.Status, "role": u.Role, "createdAt": u.CreatedAt}
+	return map[string]any{"id": u.ID, "username": u.Username, "display_name": u.DisplayName, "displayName": u.DisplayName, "status": u.Status, "role": u.Role, "created_at": u.CreatedAt, "createdAt": u.CreatedAt}
 }
 func nodeDTO(n domain.Node) any {
 	status, serviceStatus := "unknown", "unknown"

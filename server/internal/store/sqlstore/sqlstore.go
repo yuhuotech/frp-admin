@@ -155,7 +155,7 @@ func (s *Store) CreateUser(ctx context.Context, u domain.User) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, s.q("INSERT INTO users(id,username,password_hash,status,created_at) VALUES(?,?,?,?,?)"), u.ID, u.Username, u.PasswordHash, u.Status, micros(u.CreatedAt)); err != nil {
+	if _, err = tx.ExecContext(ctx, s.q("INSERT INTO users(id,username,display_name,password_hash,status,created_at) VALUES(?,?,?,?,?,?)"), u.ID, u.Username, u.DisplayName, u.PasswordHash, u.Status, micros(u.CreatedAt)); err != nil {
 		return translate(err)
 	}
 	if _, err = tx.ExecContext(ctx, s.q("INSERT INTO user_roles(user_id,role) VALUES(?,?)"), u.ID, u.Role); err != nil {
@@ -170,15 +170,15 @@ func (s *Store) CreateUser(ctx context.Context, u domain.User) error {
 func scanUser(row interface{ Scan(...any) error }) (domain.User, error) {
 	var u domain.User
 	var created int64
-	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Status, &u.Role, &created)
+	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Status, &u.Role, &created)
 	u.CreatedAt = instant(created)
 	return u, translate(err)
 }
 func (s *Store) UserByUsername(ctx context.Context, name string) (domain.User, error) {
-	return scanUser(s.db.QueryRowContext(ctx, s.q("SELECT u.id,u.username,u.password_hash,u.status,r.role,u.created_at FROM users u JOIN user_roles r ON r.user_id=u.id WHERE u.username=?"), name))
+	return scanUser(s.db.QueryRowContext(ctx, s.q("SELECT u.id,u.username,u.display_name,u.password_hash,u.status,r.role,u.created_at FROM users u JOIN user_roles r ON r.user_id=u.id WHERE u.username=?"), name))
 }
 func (s *Store) UserByID(ctx context.Context, id string) (domain.User, error) {
-	return scanUser(s.db.QueryRowContext(ctx, s.q("SELECT u.id,u.username,u.password_hash,u.status,r.role,u.created_at FROM users u JOIN user_roles r ON r.user_id=u.id WHERE u.id=?"), id))
+	return scanUser(s.db.QueryRowContext(ctx, s.q("SELECT u.id,u.username,u.display_name,u.password_hash,u.status,r.role,u.created_at FROM users u JOIN user_roles r ON r.user_id=u.id WHERE u.id=?"), id))
 }
 
 func (s *Store) CreateSession(ctx context.Context, v domain.Session) error {
@@ -547,7 +547,7 @@ func (s *Store) ListSecrets(ctx context.Context, limit int, cursor string) (doma
 
 func (s *Store) ListUsers(ctx context.Context, limit int, cursor string) (domain.Page[domain.User], error) {
 	offset := decodeCursor(cursor)
-	rows, e := s.db.QueryContext(ctx, s.q("SELECT u.id,u.username,u.password_hash,u.status,r.role,u.created_at FROM users u JOIN user_roles r ON r.user_id=u.id ORDER BY u.username,u.id LIMIT ? OFFSET ?"), limit+1, offset)
+	rows, e := s.db.QueryContext(ctx, s.q("SELECT u.id,u.username,u.display_name,u.password_hash,u.status,r.role,u.created_at FROM users u JOIN user_roles r ON r.user_id=u.id ORDER BY u.username,u.id LIMIT ? OFFSET ?"), limit+1, offset)
 	if e != nil {
 		return domain.Page[domain.User]{}, e
 	}
@@ -567,6 +567,51 @@ func (s *Store) ListUsers(ctx context.Context, limit int, cursor string) (domain
 	}
 	return out, rows.Err()
 }
+func (s *Store) UpdateUserProfile(ctx context.Context, id, displayName string) error {
+	name := strings.TrimSpace(displayName)
+	if len(name) > 128 {
+		return fmt.Errorf("display name must be at most 128 characters")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, s.q("UPDATE users SET display_name=? WHERE id=?"), name, id)
+	if err != nil {
+		return translate(err)
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		return storepkg.ErrNotFound
+	}
+	if err = s.appendMutationAudit(ctx, tx); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) UpdateUserPassword(ctx context.Context, id, passwordHash string, at time.Time) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, s.q("UPDATE users SET password_hash=? WHERE id=?"), passwordHash, id)
+	if err != nil {
+		return translate(err)
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		return storepkg.ErrNotFound
+	}
+	if _, err = tx.ExecContext(ctx, s.q("UPDATE sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL"), micros(at), id); err != nil {
+		return err
+	}
+	if err = s.appendMutationAudit(ctx, tx); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) UpdateUserAccess(ctx context.Context, id, statusValue, role string, at time.Time) error {
 	tx, e := s.db.BeginTx(ctx, nil)
 	if e != nil {

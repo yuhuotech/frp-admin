@@ -6,6 +6,8 @@ export interface User {
   id: string;
   username: string;
   display_name?: string;
+  displayName?: string;
+  created_at?: string;
   role: 'admin' | 'operator' | 'viewer' | 'auditor' | string;
 }
 
@@ -150,6 +152,21 @@ export interface ProxyTraffic {
   today_bytes_in: number;
   today_bytes_out: number;
   current_connections: number;
+}
+
+export interface ProxyConfig {
+  name: string;
+  type: string;
+  localIP?: string;
+  localPort?: number;
+  remotePort?: number;
+  customDomains?: string[];
+  subdomain?: string;
+  local_ip?: string;
+  local_port?: number;
+  remote_port?: number;
+  custom_domains?: string[];
+  [key: string]: unknown;
 }
 
 export interface ProxySummary {

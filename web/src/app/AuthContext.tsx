@@ -8,6 +8,7 @@ interface AuthState {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -27,8 +28,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     loading,
     login: async (username, password) => setUser(await authApi.login(username, password)),
     logout: async () => {
-      try { await authApi.logout(); } finally { setUser(undefined); }
+      try { await authApi.logout(); } catch (error) {
+        // A password change revokes the current session before the UI logs out.
+        if (!(error instanceof ApiError) || error.status !== 401) throw error;
+      } finally { setUser(undefined); }
     },
+    updateUser: (updated) => setUser(updated),
   }), [user, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

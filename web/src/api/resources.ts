@@ -1,5 +1,5 @@
 import { api, normalizePage } from './client';
-import type { AlertSummary, AuditLog, BootstrapStatus, ConfigRevision, ConfigStrategy, DashboardSummary, EnrollmentToken, ManagedUser, NodeRole, NodeSummary, Page, ProxySummary, SecretSummary, SecurityRisk, TaskSummary, UpgradePlan, UpgradePlanResult, User } from './types';
+import type { AlertSummary, AuditLog, BootstrapStatus, ConfigRevision, ConfigStrategy, DashboardSummary, EnrollmentToken, ManagedUser, NodeRole, NodeSummary, Page, ProxyConfig, ProxySummary, SecretSummary, SecurityRisk, TaskSummary, UpgradePlan, UpgradePlanResult, User } from './types';
 
 export const authApi = {
   bootstrapStatus: () => api.get<BootstrapStatus>('/auth/bootstrap-status'),
@@ -7,6 +7,8 @@ export const authApi = {
   login: (username: string, password: string) => api.post<User>('/auth/login', { username, password }),
   logout: () => api.post<void>('/auth/logout'),
   me: () => api.get<User>('/users/me'),
+  updateProfile: (display_name: string) => api.patch<User>('/users/me/profile', { display_name }),
+  changePassword: (current_password: string, new_password: string) => api.put<{ changed: boolean; reauthenticate: boolean }>('/users/me/password', { current_password, new_password }),
 };
 
 export const nodesApi = {
@@ -118,6 +120,12 @@ export const proxiesApi = {
     return normalizePage(await api.get<Page<ProxySummary> | ProxySummary[]>(`/proxies?${params.toString()}`));
   },
   get: (nodeId: string, name: string) => api.get<ProxySummary>(`/proxies/${encodeURIComponent(nodeId)}/${encodeURIComponent(name)}`),
+};
+
+export const proxyConfigApi = {
+  list: (nodeId: string) => api.get<{ node_id: string; revision_id: string; revision_version: number; items: ProxyConfig[] }>(`/nodes/${encodeURIComponent(nodeId)}/proxy-config`),
+  upsert: (nodeId: string, input: { name: string; type: string; local_ip: string; local_port: number; remote_port?: number; custom_domains?: string[]; subdomain?: string; strategy: ConfigStrategy }) => api.post<{ revision: ConfigRevision; task: TaskSummary }>(`/nodes/${encodeURIComponent(nodeId)}/proxy-config`, input),
+  remove: (nodeId: string, name: string) => api.delete<{ revision: ConfigRevision; task: TaskSummary }>(`/nodes/${encodeURIComponent(nodeId)}/proxy-config/${encodeURIComponent(name)}`),
 };
 
 export interface UpgradeFilters { nodeId?: string; state?: string; limit?: number; cursor?: string }

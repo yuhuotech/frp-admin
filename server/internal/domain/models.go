@@ -3,8 +3,8 @@ package domain
 import "time"
 
 type User struct {
-	ID, Username, PasswordHash, Status, Role string
-	CreatedAt                                time.Time
+	ID, Username, DisplayName, PasswordHash, Status, Role string
+	CreatedAt                                             time.Time
 }
 
 type Session struct {

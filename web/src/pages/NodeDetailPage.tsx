@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Descriptions, message, Modal, Space, Tabs, Tag, Tooltip, Typography } from 'antd';
+import { useState } from 'react';
+import { Button, Descriptions, Form, Input, message, Modal, Space, Tabs, Tag, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, CaretRightOutlined, DatabaseOutlined, EyeOutlined, ReloadOutlined, SafetyCertificateOutlined, SearchOutlined, StopOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { nodesApi } from '../api/resources';
+import { nodesApi, upgradesApi } from '../api/resources';
 import { EmptyState, PageError, PageLoading } from '../components/AsyncState';
 import { StatusTag } from '../components/StatusTag';
 import { formatTime } from '../utils/format';
@@ -22,6 +23,8 @@ export function NodeDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeForm] = Form.useForm<{ version: string; artifact_url: string; sha256: string }>();
   const query = useQuery({ queryKey: ['nodes', id], queryFn: () => nodesApi.get(id), enabled: Boolean(id) });
   const inspect = useMutation({ mutationFn: () => nodesApi.inspect(id), onSuccess: (task) => { message.success('检查任务已创建'); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${task.id}`); }, onError: (error) => message.error(error.message) });
   const collectRuntime = useMutation({
@@ -30,6 +33,11 @@ export function NodeDetailPage() {
       return nodesApi.collectRuntime(id);
     },
     onSuccess: (task) => { message.success('运行态采集任务已创建'); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${task.id}`); },
+    onError: (error) => message.error(error.message),
+  });
+  const upgrade = useMutation({
+    mutationFn: (values: { version: string; artifact_url: string; sha256: string }) => upgradesApi.create({ node_id: id, ...values }),
+    onSuccess: (result) => { setUpgradeOpen(false); upgradeForm.resetFields(); message.success('升级任务已创建'); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${result.task.id}`); },
     onError: (error) => message.error(error.message),
   });
   const serviceAction = useMutation({
@@ -52,6 +60,7 @@ export function NodeDetailPage() {
   const agentOnline = node.status === 'online';
   const managed = node.management_mode === 'managed';
   const runtimeReason = nodeOperationBlockedReason(node, { capability: 'runtime.collect', label: '运行态采集', role: user?.role });
+  const upgradeReason = nodeOperationBlockedReason(node, { capability: 'frp.upgrade', label: '升级 FRP', requireManaged: true, role: user?.role });
   const confirmServiceAction = (action: keyof typeof serviceActions) => {
     const reason = nodeOperationBlockedReason(node, { capability: `service.${action}`, label: `服务${serviceActions[action].label}`, requireManaged: true, role: user?.role });
     if (reason) { message.error(reason); return; }
@@ -87,8 +96,17 @@ export function NodeDetailPage() {
       {user?.role === 'admin' && <Button icon={managed ? <EyeOutlined /> : <SafetyCertificateOutlined />} loading={updateMode.isPending} onClick={confirmMode}>{managed ? '切换为观察' : '切换为托管'}</Button>}
       {(Object.keys(serviceActions) as Array<keyof typeof serviceActions>).map((action) => { const reason = nodeOperationBlockedReason(node, { capability: `service.${action}`, label: `服务${serviceActions[action].label}`, requireManaged: true, role: user?.role }); return <Tooltip key={action} title={reason}><span><Button danger={serviceActions[action].danger} icon={serviceActions[action].icon} disabled={Boolean(reason)} loading={serviceAction.isPending && serviceAction.variables === action} onClick={() => confirmServiceAction(action)}>{serviceActions[action].label}</Button></span></Tooltip>; })}
       <Tooltip title={runtimeReason}><span><Button icon={<DatabaseOutlined />} disabled={Boolean(runtimeReason)} loading={collectRuntime.isPending} onClick={() => collectRuntime.mutate()}>采集运行态</Button></span></Tooltip>
+      <Tooltip title={upgradeReason}><span><Button icon={<ReloadOutlined />} disabled={Boolean(upgradeReason)} onClick={() => { upgradeForm.resetFields(); setUpgradeOpen(true); }}>升级 FRP</Button></span></Tooltip>
       <Tooltip title={agentOnline ? '' : 'Agent 离线，无法立即检查'}><Button type="primary" icon={<SearchOutlined />} disabled={!agentOnline} loading={inspect.isPending} onClick={() => inspect.mutate()}>立即检查</Button></Tooltip>
     </Space>}</div>
     <Tabs items={[{ key: 'overview', label: '概览', children: overview }, { key: 'proxies', label: '代理', children: <div className="content-panel"><Link to={`/proxies?nodeId=${encodeURIComponent(id)}`}>查看该节点代理</Link></div> }, { key: 'config', label: '配置', children: <div className="content-panel">{managed ? <Link to={`/nodes/${id}/configuration`}>进入配置中心</Link> : <Typography.Text type="secondary">观察模式不允许配置变更</Typography.Text>}</div> }, { key: 'tasks', label: '任务', children: <div className="content-panel"><Link to={`/tasks?node_id=${id}`}>查看该节点全部任务</Link></div> }, { key: 'monitoring', label: '监控', children: <EmptyState description="暂无监控数据" /> }]} />
+    <Modal title={`升级 ${node.role === 'server' ? 'frps' : 'frpc'}`} open={upgradeOpen} okText="创建升级任务" cancelText="取消" confirmLoading={upgrade.isPending} onCancel={() => setUpgradeOpen(false)} onOk={() => upgradeForm.submit()} destroyOnHidden>
+      <Typography.Paragraph type="secondary">升级会先下载并校验 SHA-256，再由 Agent 原子替换二进制并恢复服务。请使用官方制品地址和校验值，不要在生产节点上跳过校验。</Typography.Paragraph>
+      <Form form={upgradeForm} layout="vertical" onFinish={(values) => upgrade.mutate(values)}>
+        <Form.Item name="version" label="目标版本" rules={[{ required: true, message: '请输入目标版本' }]}><Input placeholder="例如 v0.69.1" /></Form.Item>
+        <Form.Item name="artifact_url" label="制品 URL" rules={[{ required: true, type: 'url', message: '请输入有效的制品 URL' }]}><Input placeholder="https://.../frp_*.tar.gz" /></Form.Item>
+        <Form.Item name="sha256" label="SHA-256" rules={[{ required: true, len: 64, message: '请输入 64 位 SHA-256' }, { pattern: /^[a-fA-F0-9]+$/, message: 'SHA-256 只能包含十六进制字符' }]}><Input /></Form.Item>
+      </Form>
+    </Modal>
   </div>;
 }

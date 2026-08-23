@@ -104,6 +104,41 @@ func (s *Service) UpdateUser(ctx context.Context, id, statusValue, role string) 
 	}
 	return s.store.UpdateUserAccess(store.WithMutationAction(ctx, "user.update", "user/"+id), id, statusValue, role, s.now().UTC())
 }
+func (s *Service) UpdateProfile(ctx context.Context, userID, displayName string) (domain.User, error) {
+	if len(strings.TrimSpace(displayName)) > 128 {
+		return domain.User{}, errors.New("display name must be at most 128 characters")
+	}
+	ctx = store.WithMutationAction(ctx, "user.profile.update", "user/"+userID)
+	if err := s.store.UpdateUserProfile(ctx, userID, displayName); err != nil {
+		return domain.User{}, err
+	}
+	u, err := s.store.UserByID(ctx, userID)
+	if err != nil {
+		return domain.User{}, err
+	}
+	u.PasswordHash = ""
+	return u, nil
+}
+
+func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	if len(newPassword) < 12 {
+		return errors.New("password must contain at least 12 characters")
+	}
+	u, err := s.store.UserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !verifyPassword(currentPassword, u.PasswordHash) {
+		return ErrInvalidCredentials
+	}
+	h, err := hashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	ctx = store.WithMutationAction(ctx, "user.password.change", "user/"+userID)
+	return s.store.UpdateUserPassword(ctx, userID, h, s.now().UTC())
+}
+
 func (s *Service) Login(ctx context.Context, c Credentials) (domain.User, Tokens, error) {
 	u, e := s.store.UserByUsername(ctx, strings.TrimSpace(c.Username))
 	if e != nil || u.Status != "active" || !verifyPassword(c.Password, u.PasswordHash) {
