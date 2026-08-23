@@ -176,6 +176,8 @@ export interface ProxyConfig {
   [key: string]: unknown;
 }
 
+export interface RuntimeSnapshot { node_id: string; role: string; frp_version?: string; collected_at?: string; bind_address?: string; bind_port?: number; proxy_count: number; client_count: number; proxies: ProxySummary[]; clients: Array<{ id: string; address: string; connected_at?: string }>; }
+
 export interface ProxySummary {
   node_id: string;
   node_name: string;

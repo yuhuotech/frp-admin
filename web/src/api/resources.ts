@@ -16,6 +16,7 @@ export const nodesApi = {
   get: (id: string) => api.get<NodeSummary>(`/nodes/${encodeURIComponent(id)}`),
   inspect: (id: string) => api.post<TaskSummary>(`/nodes/${encodeURIComponent(id)}/inspect`),
   collectRuntime: (id: string) => api.post<TaskSummary>(`/nodes/${encodeURIComponent(id)}/runtime-collections`),
+  runtime: (id: string) => api.get<import('./types').RuntimeSnapshot>(`/nodes/${encodeURIComponent(id)}/runtime`),
   updateManagementMode: (id: string, mode: 'observe' | 'managed') => api.patch<NodeSummary>(`/nodes/${encodeURIComponent(id)}/management-mode`, { mode }),
   serviceAction: (id: string, action: 'start' | 'stop' | 'restart') => api.post<TaskSummary>(`/nodes/${encodeURIComponent(id)}/service-actions`, { action }),
   createEnrollmentToken: (role: NodeRole, ttlSeconds = 600) => api.post<EnrollmentToken>('/nodes/enrollment-tokens', { role, ttlSeconds }),
