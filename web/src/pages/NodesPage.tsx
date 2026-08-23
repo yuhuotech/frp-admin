@@ -53,7 +53,7 @@ export function NodesPage() {
       { title: '连接', dataIndex: 'status', width: 90, render: (value) => <StatusTag value={value} /> },
       { title: '服务', dataIndex: 'service_status', width: 100, render: (value) => <StatusTag value={value} /> },
       { title: 'frp / Agent', width: 160, render: (_, row) => <Space direction="vertical" size={0}><span>{row.frp_version || '-'}</span><span className="cell-secondary">{row.agent_version || '-'}</span></Space> },
-      { title: '配置版本', width: 130, render: (_, row) => <span className={row.drifted || row.desired_revision !== row.observed_revision ? 'text-warning' : ''}>{row.observed_revision ?? '-'} / {row.desired_revision ?? '-'}</span> },
+      { title: '配置版本', width: 130, render: (_, row) => <span className={row.drifted || Boolean(row.desired_revision && row.desired_revision !== row.observed_revision) ? 'text-warning' : ''}>{row.observed_revision ?? '-'} / {row.desired_revision ?? '-'}</span> },
       { title: '最后心跳', dataIndex: 'last_heartbeat_at', width: 170, render: formatTime },
       { title: '', fixed: 'right', width: 70, render: (_, row) => <Link to={`/nodes/${row.id}`}>详情</Link> },
     ]} /></div>}

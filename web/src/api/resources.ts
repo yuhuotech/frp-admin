@@ -147,7 +147,7 @@ export async function getDashboard(): Promise<DashboardSummary> {
     nodes_total: nodes.total ?? nodes.items.length,
     nodes_online: nodes.items.filter((node) => node.status === 'online').length,
     nodes_healthy: nodes.items.filter((node) => node.status === 'online' && node.service_status === 'active' && !node.drifted).length,
-    nodes_drifted: nodes.items.filter((node) => node.drifted || node.desired_revision !== node.observed_revision).length,
+    nodes_drifted: nodes.items.filter((node) => Boolean(node.drifted || (node.desired_revision && node.desired_revision !== node.observed_revision))).length,
     alerts_firing: alerts.items.filter((alert) => ['open', 'acknowledged'].includes(alert.state)).length,
     tasks_running: tasks.items.filter((task) => ['pending', 'queued', 'dispatched', 'running'].includes(task.status)).length,
   };
