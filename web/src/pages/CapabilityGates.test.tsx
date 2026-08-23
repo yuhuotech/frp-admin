@@ -25,23 +25,20 @@ describe('non-risk capability gates', () => {
     vi.restoreAllMocks();
   });
 
-  it('blocks service mutations and runtime collection on the node detail page', async () => {
+  it('hides invalid service actions and blocks unsupported service mutations on the node detail page', async () => {
     vi.spyOn(nodesApi, 'get').mockResolvedValue(node);
     const service = vi.spyOn(nodesApi, 'serviceAction').mockResolvedValue({ id: 'task-1', type: 'service_start', status: 'queued', created_at: '' });
-    const runtime = vi.spyOn(nodesApi, 'collectRuntime').mockResolvedValue({ id: 'task-2', type: 'collect_runtime', status: 'queued', created_at: '' });
     const user = userEvent.setup();
     renderRoute(<NodeDetailPage />, '/nodes/node-1', '/nodes/:id');
 
-    const start = (await screen.findByText('启动')).closest('button')!;
-    const collect = screen.getByText('采集运行态').closest('button')!;
-    expect(start).toBeDisabled();
-    expect(collect).toBeDisabled();
-    await user.hover(start.parentElement!);
-    expect(await screen.findByText('当前 Agent 或运行环境不支持服务启动')).toBeInTheDocument();
-    await user.click(start);
-    await user.click(collect);
+    expect(screen.queryByText('启动')).not.toBeInTheDocument();
+    expect(screen.queryByText('采集运行态')).not.toBeInTheDocument();
+    const stop = (await screen.findByText('停止')).closest('button')!;
+    expect(stop).toBeDisabled();
+    await user.hover(stop.parentElement!);
+    expect(await screen.findByText('当前 Agent 或运行环境不支持服务停止')).toBeInTheDocument();
+    await user.click(stop);
     expect(service).not.toHaveBeenCalled();
-    expect(runtime).not.toHaveBeenCalled();
   });
 
   it('blocks config apply and rollback on the configuration page', async () => {
