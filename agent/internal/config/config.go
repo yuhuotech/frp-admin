@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -32,11 +33,12 @@ type TLS struct {
 }
 
 type FRP struct {
-	ServiceName  string   `yaml:"serviceName"`
-	BinaryPath   string   `yaml:"binaryPath"`
-	ConfigPath   string   `yaml:"configPath"`
-	HelperSocket string   `yaml:"helperSocket"`
-	AdminAPI     AdminAPI `yaml:"adminAPI"`
+	ServiceName      string   `yaml:"serviceName"`
+	LaunchdPlistPath string   `yaml:"launchdPlistPath"`
+	BinaryPath       string   `yaml:"binaryPath"`
+	ConfigPath       string   `yaml:"configPath"`
+	HelperSocket     string   `yaml:"helperSocket"`
+	AdminAPI         AdminAPI `yaml:"adminAPI"`
 }
 
 type AdminAPI struct {
@@ -141,12 +143,8 @@ func (c Config) Validate() error {
 	if c.FRP.HelperSocket != "" && c.FRP.HelperSocket != "/run/frp-agent-helper.sock" {
 		return errors.New("frp.helperSocket must be /run/frp-agent-helper.sock when configured")
 	}
-	expectedService := "frpc.service"
-	if c.Role == "server" {
-		expectedService = "frps.service"
-	}
-	if c.FRP.ServiceName != expectedService {
-		return fmt.Errorf("frp.serviceName must be %s for role %s", expectedService, c.Role)
+	if err := validateServiceIdentity(c.FRP.ServiceName, c.FRP.LaunchdPlistPath, c.Role); err != nil {
+		return err
 	}
 	if c.Channel.ReconnectMin > c.Channel.ReconnectMax {
 		return errors.New("channel.reconnectMin must not exceed reconnectMax")
@@ -164,6 +162,32 @@ func (c Config) Validate() error {
 		return err
 	}
 	return nil
+}
+
+func validateServiceIdentity(serviceName, launchdPlistPath, role string) error {
+	if serviceName == "" || strings.HasPrefix(serviceName, "-") || strings.ContainsAny(serviceName, "/\\\t\r\n ") {
+		return errors.New("frp.serviceName is not a valid service identifier")
+	}
+	if runtime.GOOS == "linux" {
+		expectedService := "frpc.service"
+		if role == "server" {
+			expectedService = "frps.service"
+		}
+		if serviceName != expectedService {
+			return fmt.Errorf("frp.serviceName must be %s for role %s", expectedService, role)
+		}
+		if launchdPlistPath != "" {
+			return errors.New("frp.launchdPlistPath is only supported on macOS")
+		}
+		return nil
+	}
+	if runtime.GOOS == "darwin" {
+		if launchdPlistPath != "" && !filepath.IsAbs(launchdPlistPath) {
+			return errors.New("frp.launchdPlistPath must be absolute")
+		}
+		return nil
+	}
+	return fmt.Errorf("service lifecycle is unsupported on %s", runtime.GOOS)
 }
 
 func validateAdminAPI(value AdminAPI) error {

@@ -55,11 +55,11 @@ type serviceHelper interface {
 // ServiceLifecycle keeps read-only status local and sends only typed mutations
 // through the privileged helper.
 type ServiceLifecycle struct {
-	local  *service.Systemd
+	local  service.Lifecycle
 	helper serviceHelper
 }
 
-func NewServiceLifecycle(local *service.Systemd, helper serviceHelper) *ServiceLifecycle {
+func NewServiceLifecycle(local service.Lifecycle, helper serviceHelper) *ServiceLifecycle {
 	return &ServiceLifecycle{local: local, helper: helper}
 }
 

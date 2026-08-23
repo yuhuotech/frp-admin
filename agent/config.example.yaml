@@ -6,6 +6,9 @@ tls:
   serverName: admin.example.com
 frp:
   serviceName: frpc.service
+  # macOS launchd label and plist path. Leave empty on Linux/systemd.
+  # serviceName: homebrew.mxcl.frpc
+  # launchdPlistPath: /Users/your-user/Library/LaunchAgents/homebrew.mxcl.frpc.plist
   binaryPath: /opt/frp/bin/frpc
   configPath: /etc/frp/frpc.toml
   helperSocket: /run/frp-agent-helper.sock

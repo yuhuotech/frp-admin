@@ -1,7 +1,9 @@
 # frp-agent
 
-The agent manages exactly one locally configured `frpc` or `frps` systemd
-service. The control protocol has no arbitrary command or shell field.
+The agent manages exactly one locally configured `frpc` or `frps` service. On
+Linux it integrates with systemd; on macOS it integrates with the current
+user's launchd GUI domain. The control protocol has no arbitrary command or
+shell field.
 
 ## Development
 
@@ -24,7 +26,7 @@ frp-agent -config /etc/frp-agent/agent.yaml \
 trusted by the host system roots. Copy this CA through a trusted provisioning
 channel and verify it out of band; disabling TLS verification is not supported.
 
-The supplied systemd unit runs as the dedicated `frp-agent` user. Its systemd
+On Linux, the supplied systemd unit runs as the dedicated `frp-agent` user. Its systemd
 writable-path allowlist is limited to `/var/lib/frp-agent`, `/etc/frp`, and
 `/opt/frp/bin`, but the installer keeps the frp resource directories
 `root:root 0755`; the allowlist does not bypass filesystem permissions. An
@@ -52,6 +54,13 @@ accepts a unit, path, argument vector, or shell command from the caller. Without
 a valid helper, Linux service mutation and repair capabilities are not
 advertised; `packaging/helper.example.json` is an operator-edited template.
 
+On macOS, set `frp.serviceName` to the launchd label and optionally set
+`frp.launchdPlistPath` to the user's LaunchAgent plist. The Agent must run as
+the same user that owns the launchd service. It uses only fixed `launchctl`
+operations (`print`, `enable`, `disable`, `kickstart`, `kill`, and `bootstrap`)
+and never accepts a launchd label, path, or shell command from the control
+plane.
+
 Configuration apply is a local transaction: checksum and `frpc/frps verify -c`
 run before replacement, the candidate is created beside the target file for an
 atomic rename, and service or health failures restore the previous file. The
@@ -61,12 +70,13 @@ last ten local revisions are recorded under `stateDir/backups/config` and
 frp upgrades accept HTTPS artifacts only. Every redirect host must appear in
 `upgrade.allowedHosts`, compressed and extracted sizes are bounded, archive
 paths and links are rejected, and only the binary matching the configured role
-is selected. Version and current-config verification run before systemd is
-stopped. Failed starts or health checks restore the previous binary using an
-independent cleanup timeout. Same-user installations may use `/opt/frp/bin/frpc` or
-`/opt/frp/bin/frps`, matching the systemd unit's exact writable path. Custom
-binary locations require a matching unit sandbox and helper allowlist build rather
-than a YAML-only change.
+is selected. Version and current-config verification run before the service is stopped.
+Failed starts or health checks restore the previous binary using an independent
+cleanup timeout. On Linux, same-user installations may use `/opt/frp/bin/frpc`
+or `/opt/frp/bin/frps`, matching the systemd unit's exact writable path. On
+macOS, the configured frp binary must be owned and writable by the launchd
+user; a root-owned Homebrew binary is intentionally not advertised as
+upgradeable until it is moved into a user-owned path.
 
 Client certificates are checked every 12 hours and rotated seven days before
 expiry over the already authenticated mTLS stream. The new certificate must

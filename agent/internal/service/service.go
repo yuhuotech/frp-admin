@@ -15,6 +15,15 @@ type Manager interface {
 	Act(context.Context, agentv1.ServiceAction) (*agentv1.ServiceStatus, error)
 }
 
+type Lifecycle interface {
+	Manager
+	ApplyConfigStrategy(context.Context, string) error
+	Healthy(context.Context) error
+	Controllable(context.Context) error
+	Stop(context.Context) error
+	Start(context.Context) error
+}
+
 type Runner interface {
 	CombinedOutput(context.Context, string, ...string) ([]byte, error)
 }

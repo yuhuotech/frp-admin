@@ -84,7 +84,7 @@ func main() {
 		fatal(err)
 	}
 	defer j.Close()
-	services := service.NewSystemd(cfg.FRP.ServiceName, cfg.FRP.BinaryPath, cfg.FRP.ConfigPath, cfg.Role)
+	services := service.New(cfg.FRP.ServiceName, cfg.FRP.LaunchdPlistPath, cfg.FRP.BinaryPath, cfg.FRP.ConfigPath, cfg.Role)
 	var helper *roothelper.Client
 	if cfg.FRP.HelperSocket != "" {
 		helper = &roothelper.Client{SocketPath: cfg.FRP.HelperSocket}
@@ -146,12 +146,14 @@ func main() {
 	commands.WithRuntimeCollector(runtimeCollector)
 	client := channelclient.New(cfg, version, commands).WithCertificateManager(certificates)
 	availableCapabilities := baseCapabilities()
-	if runtime.GOOS == "linux" && services.Controllable(ctx) == nil {
+	if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && services.Controllable(ctx) == nil {
 		availableCapabilities = append(availableCapabilities, "service.status")
 		if helper != nil && helper.ProbeService(ctx) == nil {
 			availableCapabilities = append(availableCapabilities, "service.start", "service.stop", "service.restart")
-			availableCapabilities = append(availableCapabilities, managementcap.Detect(ctx, cfg.FRP.ServiceName, cfg.FRP.ConfigPath, cfg.FRP.BinaryPath)...)
+		} else if runtime.GOOS == "darwin" {
+			availableCapabilities = append(availableCapabilities, "service.start", "service.stop", "service.restart")
 		}
+		availableCapabilities = append(availableCapabilities, managementcap.Detect(ctx, cfg.FRP.ServiceName, cfg.FRP.ConfigPath, cfg.FRP.BinaryPath)...)
 	}
 	if runtime.GOOS == "linux" && helper != nil && helper.Probe(ctx) == nil {
 		availableCapabilities = append(availableCapabilities, "risk.repair.config_permissions")
