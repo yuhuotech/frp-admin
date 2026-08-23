@@ -36,7 +36,7 @@ jobs:
         run: deploy/ops/release-metadata.sh --output-dir dist/release dist/archives/*.tar.gz
       - name: Verify release metadata
         run: deploy/ops/verify-release.sh dist/release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-binaries
           path: dist/release/
@@ -86,7 +86,7 @@ jobs:
           image: ${{ steps.image.outputs.name }}
           format: spdx-json
           output-file: frp-admin-${{ matrix.component }}-linux-${{ matrix.arch }}.spdx.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: image-sbom-${{ matrix.component }}-${{ matrix.arch }}
           path: frp-admin-${{ matrix.component }}-linux-${{ matrix.arch }}.spdx.json
