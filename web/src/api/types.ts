@@ -85,6 +85,7 @@ export interface NodeSummary {
   frp_binary_path?: string;
   frp_config_path?: string;
   config_discovery_state?: string;
+  frp_config_sha256?: string;
   created_at?: string;
 }
 

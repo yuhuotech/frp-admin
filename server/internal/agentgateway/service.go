@@ -163,8 +163,10 @@ func (s *Service) Connect(stream agentv1.AgentControlService_ConnectServer) erro
 			inv := msg.GetInventory()
 			obs.Online = true
 			if s.importer != nil && len(inv.GetFrpConfigContent()) > 0 && validConfigDiscoveryHash(inv.GetFrpConfigContent(), inv.GetFrpConfigSha256()) {
-				if _, importErr := s.importer.ImportDiscovered(stream.Context(), node.ID, inv.GetFrpConfigContent()); importErr != nil {
+				if imported, importErr := s.importer.ImportDiscovered(stream.Context(), node.ID, inv.GetFrpConfigContent()); importErr != nil {
 					s.logger.WarnContext(stream.Context(), "discovered FRP config was not imported", "node_id", node.ID, "error", importErr)
+				} else {
+					obs.ObservedRevisionID = &imported.ID
 				}
 			}
 			obs.LastHeartbeat = now
@@ -451,7 +453,7 @@ func safeRiskConfidence(value string) string {
 func safeCapabilities(values []string) []string {
 	allowed := map[string]struct{}{
 		"inspect": {}, "service.status": {}, "service.start": {}, "service.stop": {}, "service.restart": {},
-		"config.apply": {}, "config.rollback": {}, "frp.upgrade": {}, "runtime.collect": {}, "certificate.rotate": {},
+		"config.apply": {}, "config.rollback": {}, "config.discover": {}, "frp.upgrade": {}, "runtime.collect": {}, "certificate.rotate": {},
 		"risk.scan": {}, "risk.repair.config_permissions": {}, "risk.repair.admin_loopback": {},
 	}
 	seen := make(map[string]struct{}, len(values))

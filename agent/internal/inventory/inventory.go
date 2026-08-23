@@ -68,8 +68,11 @@ func (l *Local) Collect(ctx context.Context) (*agentv1.Inventory, error) {
 		if result.FrpConfigDiscoveryState == "" {
 			result.FrpConfigDiscoveryState = "resolved"
 		}
-	} else if result.FrpConfigDiscoveryState == "" {
+	} else {
 		result.FrpConfigDiscoveryState = "unavailable"
+		if configErr != nil {
+			result.FrpConfigCandidates = append(result.FrpConfigCandidates, &agentv1.ConfigCandidate{ConfigPath: l.configPath, Source: "read", Error: configErr.Error()})
+		}
 	}
 	if l.security != nil {
 		scan := l.security.Collect(ctx)

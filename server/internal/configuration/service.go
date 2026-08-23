@@ -115,6 +115,16 @@ func (s *Service) ImportDiscovered(ctx context.Context, nodeID string, content [
 	}
 	sum := sha256.Sum256(content)
 	sha := hex.EncodeToString(sum[:])
+	node, err := s.store.NodeByID(ctx, nodeID)
+	if err != nil {
+		return domain.ConfigRevision{}, err
+	}
+	if node.DesiredRevisionID != nil {
+		desired, desiredErr := s.Content(ctx, *node.DesiredRevisionID)
+		if desiredErr == nil && equivalentTOML(desired.Content, string(content)) {
+			return desired, nil
+		}
+	}
 	page, err := s.List(ctx, nodeID, 200, "")
 	if err != nil {
 		return domain.ConfigRevision{}, err
@@ -147,6 +157,14 @@ func (s *Service) ImportDiscovered(ctx context.Context, nodeID string, content [
 		}
 	}
 	return domain.ConfigRevision{}, store.ErrConflict
+}
+
+func equivalentTOML(left, right string) bool {
+	var a, b map[string]any
+	if toml.Unmarshal([]byte(left), &a) != nil || toml.Unmarshal([]byte(right), &b) != nil {
+		return false
+	}
+	return reflect.DeepEqual(a, b)
 }
 
 func (s *Service) List(ctx context.Context, nodeID string, limit int, cursor string) (domain.Page[domain.ConfigRevision], error) {

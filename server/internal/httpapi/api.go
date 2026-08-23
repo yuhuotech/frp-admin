@@ -1338,7 +1338,12 @@ func nodeDTO(n domain.Node) any {
 	}
 	labels := map[string]string{}
 	_ = json.Unmarshal([]byte(n.Labels), &labels)
-	return map[string]any{"id": n.ID, "name": n.Name, "role": n.Role, "labels": labels, "management_mode": n.ManagementMode, "status": status, "service_status": serviceStatus, "agent_version": agentVersion, "frp_version": frpVersion, "os": operatingSystem, "arch": architecture, "frp_binary_path": binaryPath, "frp_config_path": configPath, "config_discovery_state": discoveryState, "capabilities": capabilities, "desired_revision": desiredRevision, "observed_revision": observedRevision, "drifted": desiredRevision != nil && desiredRevision != observedRevision, "last_heartbeat_at": lastHeartbeat, "created_at": n.CreatedAt}
+	return map[string]any{"id": n.ID, "name": n.Name, "role": n.Role, "labels": labels, "management_mode": n.ManagementMode, "status": status, "service_status": serviceStatus, "agent_version": agentVersion, "frp_version": frpVersion, "os": operatingSystem, "arch": architecture, "frp_binary_path": binaryPath, "frp_config_path": configPath, "config_discovery_state": discoveryState, "frp_config_sha256": func() any {
+		if n.Observation != nil && n.Observation.ConfigSHA256 != "" {
+			return n.Observation.ConfigSHA256
+		}
+		return nil
+	}(), "capabilities": capabilities, "desired_revision": desiredRevision, "observed_revision": observedRevision, "drifted": desiredRevision != nil && desiredRevision != observedRevision, "last_heartbeat_at": lastHeartbeat, "created_at": n.CreatedAt}
 }
 func taskDTO(t domain.Task) any {
 	steps := make([]any, 0, len(t.Steps))
