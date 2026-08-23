@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { Button, Descriptions, Form, Input, message, Modal, Space, Tabs, Tag, Tooltip, Typography } from 'antd';
+import { Button, Descriptions, message, Modal, Space, Tabs, Tag, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, CaretRightOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { nodesApi, upgradesApi } from '../api/resources';
@@ -19,20 +18,29 @@ const serviceActions = {
   restart: { label: '重启', icon: <ReloadOutlined />, danger: true },
 } as const;
 
+function versionParts(value: string) {
+  const normalized = value.trim().replace(/^v/i, '').split('-')[0];
+  return normalized.split('.').map((part) => Number.parseInt(part, 10) || 0).slice(0, 3).concat([0, 0, 0]).slice(0, 3);
+}
+function isNewerVersion(current: string | undefined, latest: string | undefined) {
+  if (!current || !latest) return false;
+  const a = versionParts(current); const b = versionParts(latest);
+  for (let i = 0; i < 3; i += 1) { if (b[i] !== a[i]) return b[i] > a[i]; }
+  return false;
+}
+
 export function NodeDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [upgradeForm] = Form.useForm<{ version: string; artifact_url: string; sha256: string }>();
-  const query = useQuery({ queryKey: ['nodes', id], queryFn: () => nodesApi.get(id), enabled: Boolean(id) });
+  const query = useQuery({ queryKey: ['nodes', id], queryFn: () => nodesApi.get(id), enabled: Boolean(id), refetchInterval: 15_000 });
+  const latestRelease = useQuery({ queryKey: ['frp-release', id], queryFn: () => upgradesApi.latestForNode(id), enabled: Boolean(id), staleTime: 5 * 60_000, retry: false });
   const upgrade = useMutation({
-    mutationFn: (values: { version: string; artifact_url: string; sha256: string }) => upgradesApi.create({ node_id: id, ...values }),
-    onSuccess: (result) => { setUpgradeOpen(false); upgradeForm.resetFields(); message.success('升级任务已创建'); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${result.task.id}`); },
+    mutationFn: (input: { version: string; artifact_url: string; sha256: string }) => upgradesApi.create({ node_id: id, ...input }),
+    onSuccess: (result) => { message.success('升级任务已创建'); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${result.task.id}`); },
     onError: (error) => message.error(error.message),
   });
-  const latestRelease = useQuery({ queryKey: ['frp-release', id], queryFn: () => upgradesApi.latestForNode(id), enabled: upgradeOpen, staleTime: 5 * 60_000, retry: false });
   const serviceAction = useMutation({
     mutationFn: (action: keyof typeof serviceActions) => { assertNodeOperation(queryClient.getQueryData<NodeSummary>(['nodes', id]), { capability: `service.${action}`, label: `服务${serviceActions[action].label}`, requireManaged: true, role: user?.role }); return nodesApi.serviceAction(id, action); },
     onSuccess: (task, action) => { message.success(`${serviceActions[action].label}任务已创建`); void queryClient.invalidateQueries({ queryKey: ['tasks'] }); navigate(`/tasks/${task.id}`); },
@@ -49,6 +57,8 @@ export function NodeDetailPage() {
   const canMutate = canOperate(user?.role);
   const managed = node.management_mode === 'managed';
   const upgradeReason = nodeOperationBlockedReason(node, { capability: 'frp.upgrade', label: '升级 FRP', requireManaged: true, role: user?.role });
+  const recommended = latestRelease.data?.recommended;
+  const upgradeAvailable = Boolean(recommended && isNewerVersion(node.frp_version, latestRelease.data?.tag_name));
   const confirmServiceAction = (action: keyof typeof serviceActions) => {
     const reason = nodeOperationBlockedReason(node, { capability: `service.${action}`, label: `服务${serviceActions[action].label}`, requireManaged: true, role: user?.role });
     if (reason) { message.error(reason); return; }
@@ -59,9 +69,14 @@ export function NodeDetailPage() {
     const mode = managed ? 'observe' : 'managed';
     Modal.confirm({ title: mode === 'managed' ? `托管 ${node.name}？` : `将 ${node.name} 切换为观察模式？`, content: mode === 'managed' ? '托管模式允许远程服务操作、配置发布和升级。' : '观察模式只采集状态，服务操作、配置变更和升级将被禁止。', okText: mode === 'managed' ? '确认托管' : '确认观察', okButtonProps: { danger: mode === 'managed' }, cancelText: '取消', onOk: () => updateMode.mutateAsync(mode) });
   };
+  const confirmUpgrade = () => {
+    if (upgradeReason) { message.error(upgradeReason); return; }
+    if (!recommended || !latestRelease.data) { message.warning('尚未找到匹配当前节点系统和架构的升级制品'); return; }
+    Modal.confirm({ title: `升级 ${node.role === 'server' ? 'frps' : 'frpc'} 到 ${latestRelease.data.tag_name}？`, content: <Space direction="vertical"><Typography.Text>系统已自动匹配当前节点的 {recommended.os}/{recommended.arch} 制品。</Typography.Text><Typography.Text type="secondary">SHA-256：{recommended.sha256}</Typography.Text><Typography.Text type="secondary">确认后会创建任务，由 Agent 下载、校验并原子替换二进制。</Typography.Text></Space>, okText: '确认升级', okButtonProps: { danger: true }, cancelText: '取消', onOk: () => upgrade.mutateAsync({ version: latestRelease.data!.tag_name, artifact_url: recommended.url, sha256: recommended.sha256 ?? '' }) });
+  };
   const quickActions = () => <Space wrap>
     {(node.service_status === 'active' ? (['stop', 'restart'] as Array<keyof typeof serviceActions>) : node.service_status === 'inactive' || node.service_status === 'failed' ? (['start'] as Array<keyof typeof serviceActions>) : []).map((action) => { const reason = nodeOperationBlockedReason(node, { capability: `service.${action}`, label: `服务${serviceActions[action].label}`, requireManaged: true, role: user?.role }); return <Tooltip key={action} title={reason}><span><Button danger={serviceActions[action].danger} icon={serviceActions[action].icon} disabled={Boolean(reason)} loading={serviceAction.isPending && serviceAction.variables === action} onClick={() => confirmServiceAction(action)}>{serviceActions[action].label}</Button></span></Tooltip>; })}
-    <Tooltip title={upgradeReason}><span><Button icon={<ReloadOutlined />} disabled={Boolean(upgradeReason)} onClick={() => { upgradeForm.resetFields(); setUpgradeOpen(true); }}>升级 FRP</Button></span></Tooltip>
+    {upgradeAvailable && <Tooltip title={upgradeReason || `检测到新版本 ${latestRelease.data?.tag_name}`}><span><Button danger icon={<ReloadOutlined />} disabled={Boolean(upgradeReason) || upgrade.isPending} loading={upgrade.isPending} onClick={confirmUpgrade}>升级 FRP</Button></span></Tooltip>}
   </Space>;
   const overview = <Space direction="vertical" size={16} style={{ width: '100%' }}>
     <div className="content-panel"><Descriptions bordered size="small" column={{ xs: 1, sm: 2, xl: 4 }} items={[
@@ -73,10 +88,5 @@ export function NodeDetailPage() {
   return <div className="page-stack">
     <div className="page-heading"><Space><Button type="text" aria-label="返回" icon={<ArrowLeftOutlined />} onClick={() => navigate('/nodes')} /><div><Typography.Title level={3}>{node.name}</Typography.Title><Space><StatusTag value={node.status} /><Typography.Text type="secondary">{node.id}</Typography.Text></Space></div></Space></div>{canMutate && quickActions()}
     <Tabs items={[{ key: 'overview', label: '概览', children: overview }, { key: 'proxies', label: '代理', children: <InlineProxiesPanel nodeId={id} /> }, { key: 'config', label: '配置', children: <InlineConfigurationPanel node={node} /> }, { key: 'tasks', label: '任务', children: <InlineTasksPanel nodeId={id} /> }, { key: 'monitoring', label: '监控', children: <InlineMonitoringPanel nodeId={id} /> }]} />
-    <Modal title={`升级 ${node.role === 'server' ? 'frps' : 'frpc'}`} open={upgradeOpen} okText="创建升级任务" cancelText="取消" confirmLoading={upgrade.isPending} onCancel={() => setUpgradeOpen(false)} onOk={() => upgradeForm.submit()} destroyOnHidden>
-      <Typography.Paragraph type="secondary">升级会先下载并校验 SHA-256，再由 Agent 原子替换二进制并恢复服务。请使用官方制品地址和校验值，不要在生产节点上跳过校验。</Typography.Paragraph>
-      <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}><Button onClick={() => void latestRelease.refetch()} loading={latestRelease.isFetching}>检查 GitHub 最新版本</Button>{latestRelease.data && <Typography.Text type="secondary">最新版本：{latestRelease.data.tag_name}{latestRelease.data.recommended ? `；已匹配 ${latestRelease.data.recommended.os}/${latestRelease.data.recommended.arch} 制品` : '；未找到带 SHA-256 的匹配制品'}</Typography.Text>}{latestRelease.data?.recommended && <Button type="link" onClick={() => { const asset = latestRelease.data!.recommended!; upgradeForm.setFieldsValue({ version: latestRelease.data!.tag_name, artifact_url: asset.url, sha256: asset.sha256 }); }}>使用匹配制品填充表单</Button>}</Space>
-      <Form form={upgradeForm} layout="vertical" onFinish={(values) => upgrade.mutate(values)}><Form.Item name="version" label="目标版本" rules={[{ required: true, message: '请输入目标版本' }]}><Input placeholder="例如 v0.69.1" /></Form.Item><Form.Item name="artifact_url" label="制品 URL" rules={[{ required: true, type: 'url', message: '请输入有效的制品 URL' }]}><Input placeholder="https://.../frp_*.tar.gz" /></Form.Item><Form.Item name="sha256" label="SHA-256" rules={[{ required: true, len: 64, message: '请输入 64 位 SHA-256' }, { pattern: /^[a-fA-F0-9]+$/, message: 'SHA-256 只能包含十六进制字符' }]}><Input /></Form.Item></Form>
-    </Modal>
   </div>;
 }
